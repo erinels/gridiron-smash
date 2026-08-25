@@ -555,7 +555,7 @@ window.addEventListener('keydown', function (e) {
   ac();
 });
 window.addEventListener('keyup', function (e) { keys[e.code] = false; });
-window.addEventListener('blur', function () { keys = {}; buf = {}; });
+window.addEventListener('blur', function () { keys = {}; buf = {}; if (typeof resetTouch === 'function') resetTouch(); });
 function hit(code) { if (buf[code] > 0) { buf[code] = 0; return true; } return false; }
 function decayEdges(dt) { for (var k in buf) { if (buf[k] > 0) { buf[k] -= dt; if (buf[k] <= 0) delete buf[k]; } } }
 function clearEdges() { buf = {}; }
@@ -566,6 +566,7 @@ function axisP1() {
   if (keys.ArrowRight || keys.KeyD) x += 1;
   if (keys.ArrowUp || keys.KeyW) z -= 1;
   if (keys.ArrowDown || keys.KeyS) z += 1;
+  if (x === 0 && z === 0 && stick[1].len) return stick[1];
   return norm(x, z);
 }
 function axisP2() {
@@ -574,6 +575,7 @@ function axisP2() {
   if (keys.KeyL) x += 1;
   if (keys.KeyI) z -= 1;
   if (keys.KeyK) z += 1;
+  if (x === 0 && z === 0 && stick[2].len) return stick[2];
   return norm(x, z);
 }
 function norm(x, z) {
@@ -581,16 +583,117 @@ function norm(x, z) {
   if (l > 0.0001) { x /= l; z /= l; }
   return { x: x, z: z, len: l > 0.0001 ? 1 : 0 };
 }
-var P1 = { act: function () { return hit('Space'); }, spec: function () { return hit('KeyE'); }, sprint: function () { return keys.ShiftLeft || keys.ShiftRight; } };
-var P2 = { act: function () { return hit('KeyG'); }, spec: function () { return hit('KeyH'); }, sprint: function () { return keys.KeyU; } };
+var P1 = { act: function () { return hit('Space'); }, spec: function () { return hit('KeyE'); }, sprint: function () { return keys.ShiftLeft || keys.ShiftRight || held.ShiftLeft; } };
+var P2 = { act: function () { return hit('KeyG'); }, spec: function () { return hit('KeyH'); }, sprint: function () { return keys.KeyU || held.KeyU; } };
+
+// ---------------------------------------------------------------- touch input
+// Phones have no keyboard, so a thumbstick and big round buttons feed the same
+// key codes into the buffer above. Nothing else in the game needs to know.
+var IS_TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) ||
+               ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+var stick = { 1: { x: 0, z: 0, len: 0 }, 2: { x: 0, z: 0, len: 0 } };
+var held = {};
+
+function resetTouch() {
+  stick[1] = { x: 0, z: 0, len: 0 };
+  stick[2] = { x: 0, z: 0, len: 0 };
+  held = {};
+  if (!IS_TOUCH) return;
+  [1, 2].forEach(function (n) {
+    $('tb' + n).classList.remove('on');
+    $('tk' + n).style.transform = '';
+    $('tr' + n).classList.remove('held', 'press');
+  });
+}
+
+function initTouch() {
+  window.addEventListener('pointerdown', function () { ac(); }, { passive: true });
+  if (!IS_TOUCH) return;
+  document.body.classList.add('touch');
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+
+  [1, 2].forEach(function (n) {
+    var zone = $('tz' + n), base = $('tb' + n), knob = $('tk' + n);
+    var id = null, ox = 0, oy = 0;
+    function reach() { return base.offsetWidth * 0.42 || 54; }
+    function down(e) {
+      if (id !== null) return;
+      id = e.pointerId;
+      try { zone.setPointerCapture(id); } catch (err) { /* ignore */ }
+      var r = zone.getBoundingClientRect();
+      ox = e.clientX - r.left; oy = e.clientY - r.top;
+      base.style.left = ox + 'px'; base.style.top = oy + 'px';
+      base.classList.add('on');
+      e.preventDefault();
+      move(e);
+    }
+    function move(e) {
+      if (e.pointerId !== id) return;
+      e.preventDefault();
+      var r = zone.getBoundingClientRect();
+      var dx = (e.clientX - r.left) - ox, dy = (e.clientY - r.top) - oy;
+      var d = Math.hypot(dx, dy);
+      var nx = d > 0.001 ? dx / d : 0, ny = d > 0.001 ? dy / d : 0;
+      var lim = Math.min(d, reach());
+      knob.style.transform = 'translate(' + (nx * lim).toFixed(1) + 'px,' + (ny * lim).toFixed(1) + 'px)';
+      // small dead zone so a resting thumb does not drift the player
+      stick[n] = d < 9 ? { x: 0, z: 0, len: 0 } : { x: nx, z: ny, len: 1 };
+    }
+    function up(e) {
+      if (e.pointerId !== id) return;
+      id = null;
+      base.classList.remove('on');
+      knob.style.transform = '';
+      stick[n] = { x: 0, z: 0, len: 0 };
+    }
+    zone.addEventListener('pointerdown', down);
+    zone.addEventListener('pointermove', move);
+    zone.addEventListener('pointerup', up);
+    zone.addEventListener('pointercancel', up);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.tbtn'), function (b) {
+    var code = b.getAttribute('data-code');
+    var hold = b.getAttribute('data-hold') === '1';
+    b.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      try { b.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      b.classList.add('press');
+      if (hold) { held[code] = !held[code]; b.classList.toggle('held', !!held[code]); }
+      else buf[code] = PRESS_BUFFER;
+    });
+    function off() { b.classList.remove('press'); }
+    b.addEventListener('pointerup', off);
+    b.addEventListener('pointercancel', off);
+  });
+}
+
+// button words change with the game so a 5 year old knows what they do
+var TOUCH_LABELS = {
+  football: { p1: ['SPIN', 'THROW'], p2: ['TACKLE', ''] },
+  wrestle: { p1: ['PUNCH', 'SLAM'], p2: ['PUNCH', 'SLAM'] },
+  soccer: { p1: ['SHOOT', 'BIG KICK'], p2: ['SHOOT', 'BIG KICK'] }
+};
+function setTouchLabels() {
+  if (!IS_TOUCH) return;
+  var L = TOUCH_LABELS[mode] || TOUCH_LABELS.football;
+  [1, 2].forEach(function (n) {
+    var w = n === 1 ? L.p1 : L.p2;
+    $('ta' + n).textContent = w[0];
+    $('ts' + n).textContent = w[1];
+    $('ts' + n).style.display = w[1] ? 'flex' : 'none';
+  });
+  $('touch').classList.toggle('two', nPlayers === 2);
+}
 
 // ---------------------------------------------------------------- renderer / loop
 var renderer, clock, W = 1, H = 1;
 var current = null;  // active game module
 
 function initGL() {
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer = new THREE.WebGLRenderer({ antialias: !IS_TOUCH, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;
@@ -598,10 +701,13 @@ function initGL() {
   clock = new THREE.Clock();
   resize();
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function () { setTimeout(resize, 250); });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
   requestAnimationFrame(loop);
 }
 function resize() {
-  W = window.innerWidth; H = window.innerHeight;
+  W = Math.max(1, window.innerWidth); H = Math.max(1, window.innerHeight);
+  document.body.classList.toggle('portrait', H > W);
   renderer.setSize(W, H);
   if (current && current.camera) { current.camera.aspect = W / H; current.camera.updateProjectionMatrix(); }
   if (previewCam) { previewCam.aspect = 1; previewCam.updateProjectionMatrix(); }
@@ -661,7 +767,6 @@ function buildPreviews() {
     var cfg = CHARS[k];
     var card = document.createElement('div'); card.className = 'card';
     var cv = document.createElement('canvas'); cv.width = 380; cv.height = 380;
-    cv.style.height = '190px';
     card.appendChild(cv);
     var nm = document.createElement('div'); nm.className = 'name'; nm.textContent = cfg.name; card.appendChild(nm);
     var ds = document.createElement('div'); ds.className = 'desc'; ds.textContent = cfg.desc; card.appendChild(ds);
@@ -705,6 +810,8 @@ function startGame() {
   show(null);
   clearGameTimers();
   clearEdges();
+  resetTouch();
+  setTouchLabels();
   if (current && current.dispose) current.dispose();
   current = (mode === 'football') ? Football(pick1, pick2, nPlayers)
     : (mode === 'soccer') ? Soccer(pick1, pick2, nPlayers)
@@ -720,6 +827,7 @@ function toMenu() {
   renderer.clear();
   setTip('');
   bigMsg('', 1);
+  resetTouch();
   show('s-title');
 }
 function finish(title, body, gold) {
@@ -727,6 +835,7 @@ function finish(title, body, gold) {
   if (current && current.dispose) current.dispose();
   current = null;
   setTip('');
+  resetTouch();
   $('r-title').textContent = title;
   $('r-body').innerHTML = body;
   show('s-result');
@@ -909,6 +1018,8 @@ function Football(charKey, char2Key, np) {
     S.phase = 'kick'; S.t = 0;
     S.kickJudged = false; S.kickGood = false; S.kickAnim = 0;
     $('kick').classList.add('on');
+    $('kickcap').textContent = IS_TOUCH ? 'TAP THE GREEN BUTTON!' : 'PRESS SPACE!';
+    if (IS_TOUCH) $('ta1').textContent = 'KICK!';
     setTip('Stop the bar in the GREEN, then it kicks!');
     if (!S.kickBall) { S.kickBall = makeBall(); scene.add(S.kickBall); }
     S.kickBall.visible = true;
@@ -952,6 +1063,7 @@ function Football(charKey, char2Key, np) {
       S.kickMiss = S.kickPower <= 0.5 ? 'short' : 'wide';
       S.kickAnim = 0.45;
       $('kick').classList.remove('on');
+      setTouchLabels();
       setTip('');
     }
   }
@@ -1041,7 +1153,7 @@ function Football(charKey, char2Key, np) {
       if (S.clock <= 0) { S.clock = 0; gameOver(); return; }
     }
     if (S.phase === 'ready') {
-      if (S.t > 0.5) { S.phase = 'live'; setTip(np === 2 ? 'P1 run! P2 chase and tackle!' : 'Press SPACE to smash tacklers!'); }
+      if (S.t > 0.5) { S.phase = 'live'; setTip(np === 2 ? 'P1 run! P2 chase and tackle!' : (IS_TOUCH ? 'Tap SPIN to smash tacklers!' : 'Press SPACE to smash tacklers!')); }
     }
     if (S.phase === 'dead' && S.t > 1.0) {
       var z = carrierPos().z;
@@ -1265,7 +1377,7 @@ function Football(charKey, char2Key, np) {
 
   return {
     scene: scene, camera: camera, update: update,
-    dbg: { td: touchdown, kick: startKick, state: S },
+    dbg: { td: touchdown, kick: startKick, state: S, me: mePos },
     dispose: function () {
       $('kick').classList.remove('on');
       setTip('');
@@ -1415,7 +1527,7 @@ function Wrestle(charKey, char2Key, np) {
   setKeys(np === 2
     ? [['ARROWS', 'P1 move'], ['SPACE', 'P1 punch'], ['E', 'P1 SLAM'], ['I J K L', 'P2 move'], ['G', 'P2 punch'], ['H', 'P2 SLAM']]
     : [['ARROWS / WASD', 'move'], ['SPACE', 'punch'], ['E', 'BIG SLAM']]);
-  setTip('Get close, then press SPACE to punch and E to SLAM!');
+  setTip(IS_TOUCH ? 'Get close, then tap PUNCH and SLAM!' : 'Get close, then press SPACE to punch and E to SLAM!');
   SFX.bell();
   bigMsg('FIGHT!', 1400);
 
@@ -1855,7 +1967,9 @@ function Soccer(charKey, char2Key, np) {
   hud();
   bigMsg('KICK OFF!', 1100);
   SFX.whistle();
-  setTip(np === 2 ? 'The yellow ring shows who has the ball. Run to the far goal!' : 'Get the ball. The ring means you have it. Press SPACE to SHOOT!');
+  setTip(np === 2 ? 'The yellow ring shows who has the ball. Run to the far goal!'
+    : (IS_TOUCH ? 'Get the ball. The ring means you have it. Tap SHOOT!'
+      : 'Get the ball. The ring means you have it. Press SPACE to SHOOT!'));
 
   function kickoff(towards) {
     bp.set(0, BR, 0); bv.set(0, 0, 0);
@@ -2183,7 +2297,7 @@ function Soccer(charKey, char2Key, np) {
 
   return {
     scene: scene, camera: camera, update: update,
-    dbg: { state: S, p1: p1, kA: kA, kB: kB, bots: bots, bp: bp, bv: bv },
+    dbg: { state: S, p1: p1, p2: p2, kA: kA, kB: kB, bots: bots, bp: bp, bv: bv },
     dispose: function () { setTip(''); disposeScene(scene); }
   };
 }
@@ -2231,6 +2345,7 @@ function boot() {
   initGL();
   buildPreviews();
   wire();
+  initTouch();
   show('s-title');
   $('loading').classList.add('hidden');
 }
