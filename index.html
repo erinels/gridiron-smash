@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>GRIDIRON SMASH</title>
+<meta name="description" content="A 3D football, wrestling and soccer game you play in your browser." />
+<meta name="theme-color" content="#0a0e14" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232d7a33'/%3E%3Cellipse cx='32' cy='32' rx='20' ry='13' fill='%238b4a26'/%3E%3Cpath d='M22 32h20M32 26v12M26 28v8M38 28v8' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0e14; }
+  body { font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; color: #fff; -webkit-user-select: none; user-select: none; }
+  canvas { display: block; }
+
+  #app { position: fixed; inset: 0; }
+
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 22px; text-align: center; padding: 24px;
+    background: radial-gradient(ellipse at 50% 30%, #1d3b1f 0%, #0a0e14 70%);
+    z-index: 20;
+  }
+  .screen.hidden { display: none; }
+
+  h1 {
+    font-size: clamp(38px, 9vw, 96px);
+    letter-spacing: 3px;
+    line-height: 0.95;
+    background: linear-gradient(180deg, #fff 10%, #ffd34d 55%, #f08a1d 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 6px 0 rgba(0,0,0,0.35);
+    font-weight: 900;
+  }
+  h2 { font-size: clamp(22px, 4.5vw, 40px); font-weight: 900; letter-spacing: 2px; color: #ffd34d; }
+  p.sub { font-size: clamp(14px, 2.4vw, 20px); color: #cfe3d0; max-width: 640px; line-height: 1.5; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: stretch; }
+
+  .btn {
+    cursor: pointer; border: none; border-radius: 16px;
+    padding: 18px 30px; font-size: clamp(17px, 2.8vw, 26px); font-weight: 900;
+    letter-spacing: 1px; font-family: inherit; color: #10240f;
+    background: linear-gradient(180deg, #7ee36b, #2fa832);
+    box-shadow: 0 7px 0 #17631b, 0 12px 22px rgba(0,0,0,0.45);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 9px 0 #17631b, 0 14px 26px rgba(0,0,0,0.5); }
+  .btn:active { transform: translateY(5px); box-shadow: 0 2px 0 #17631b; }
+  .btn.blue { background: linear-gradient(180deg, #79c8ff, #1f7fd0); box-shadow: 0 7px 0 #124e80, 0 12px 22px rgba(0,0,0,0.45); color: #04203a; }
+  .btn.blue:active { box-shadow: 0 2px 0 #124e80; }
+  .btn.red { background: linear-gradient(180deg, #ff9a8a, #e0402a); box-shadow: 0 7px 0 #8b2114, 0 12px 22px rgba(0,0,0,0.45); color: #3a0a04; }
+  .btn.red:active { box-shadow: 0 2px 0 #8b2114; }
+  .btn.grey { background: linear-gradient(180deg, #d3dbe4, #8e9aa8); box-shadow: 0 7px 0 #545e69, 0 12px 22px rgba(0,0,0,0.45); color: #1b2027; }
+  .btn.grey:active { box-shadow: 0 2px 0 #545e69; }
+  .btn.small { padding: 12px 20px; font-size: clamp(13px, 2vw, 18px); border-radius: 12px; }
+
+  .card {
+    cursor: pointer; width: 190px; border-radius: 20px; overflow: hidden;
+    background: linear-gradient(180deg, #22304a, #141c2b);
+    border: 4px solid #2f4160;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.5);
+    transition: transform .1s ease, border-color .1s ease;
+    display: flex; flex-direction: column;
+  }
+  .card:hover { transform: translateY(-6px) scale(1.03); border-color: #ffd34d; }
+  .card canvas { width: 100%; height: 190px; background: #101724; }
+  .card .name { padding: 10px 6px 6px; font-size: 19px; font-weight: 900; letter-spacing: 1px; min-height: 54px; display: flex; align-items: center; justify-content: center; }
+  .card .desc { padding: 0 8px 12px; font-size: 13px; color: #9fb4cc; line-height: 1.35; min-height: 46px; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: absolute; inset: 0; pointer-events: none; z-index: 10; display: none; }
+  #hud.on { display: block; }
+
+  .scorebar {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: stretch; gap: 2px;
+    background: rgba(8,12,18,0.82); border: 3px solid #ffd34d; border-radius: 14px;
+    overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  }
+  .scorebar .cell { padding: 8px 16px; text-align: center; }
+  .scorebar .lbl { font-size: 11px; letter-spacing: 2px; color: #9fb4cc; font-weight: 700; }
+  .scorebar .val { font-size: 26px; font-weight: 900; color: #fff; line-height: 1.05; }
+  .scorebar .val.gold { color: #ffd34d; }
+
+  #bigmsg {
+    position: absolute; top: 32%; left: 50%; transform: translate(-50%, -50%) scale(0.6);
+    font-size: clamp(40px, 11vw, 130px); font-weight: 900; letter-spacing: 4px;
+    color: #fff;
+    text-shadow: 0 0 6px rgba(0,0,0,0.9), 0 0 18px rgba(0,0,0,0.85), 0 0 34px #ffd34d, 0 8px 0 rgba(0,0,0,0.5);
+    -webkit-text-stroke: 3px rgba(0,0,0,0.5);
+    opacity: 0; transition: opacity .18s ease, transform .18s cubic-bezier(.2,1.6,.4,1);
+    white-space: nowrap;
+  }
+  #bigmsg.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+  #tip {
+    position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%);
+    background: rgba(8,12,18,0.8); border-radius: 12px; padding: 10px 20px;
+    font-size: clamp(14px, 2.2vw, 20px); font-weight: 700; color: #ffe9a8;
+    border: 2px solid rgba(255,211,77,0.4);
+  }
+
+  .keys { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .keycap {
+    background: rgba(8,12,18,0.8); border: 2px solid #46607f; border-radius: 10px;
+    padding: 7px 13px; font-size: 13px; font-weight: 800; color: #dbe9ff; letter-spacing: .5px;
+  }
+  .keycap b { color: #ffd34d; }
+
+  /* health bars for wrestling */
+  #bars { position: absolute; top: 14px; left: 0; right: 0; display: none; justify-content: center; gap: 14px; padding: 0 18px; }
+  #bars.on { display: flex; }
+  .fighter { flex: 1; max-width: 380px; }
+  .fighter .who { font-size: 15px; font-weight: 900; letter-spacing: 1px; margin-bottom: 4px; }
+  .hp { height: 24px; background: rgba(8,12,18,0.85); border: 3px solid #ffd34d; border-radius: 12px; overflow: hidden; }
+  .hp i { display: block; height: 100%; width: 100%; background: linear-gradient(180deg, #7ee36b, #2fa832); transition: width .12s linear; }
+  .fighter.two .hp i { background: linear-gradient(180deg, #ff9a8a, #e0402a); }
+  .fighter.two { text-align: right; }
+
+  /* kick meter */
+  #kick { position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%); width: min(70vw, 460px); display: none; }
+  #kick.on { display: block; }
+  #kick .meter { height: 30px; border: 3px solid #fff; border-radius: 15px; background: linear-gradient(90deg,#e0402a,#ffd34d 45%,#2fa832 62%,#ffd34d 80%,#e0402a); position: relative; overflow: hidden; }
+  #kick .needle { position: absolute; top: -4px; bottom: -4px; width: 6px; background: #fff; box-shadow: 0 0 12px #fff; border-radius: 3px; }
+  #kick .cap { text-align: center; font-weight: 900; margin-bottom: 6px; letter-spacing: 2px; color: #ffd34d; font-size: 18px; }
+
+  #pause { position: absolute; top: 14px; right: 14px; pointer-events: auto; z-index: 12; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0a0e14; z-index: 40; font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #ffd34d; }
+  #loading.hidden { display: none; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- ============ HUD ============ -->
+<div id="hud">
+  <div class="scorebar" id="scorebar"></div>
+  <div id="bars">
+    <div class="fighter one"><div class="who" id="f1name">YOU</div><div class="hp"><i id="hp1"></i></div></div>
+    <div class="fighter two"><div class="who" id="f2name">RIVAL</div><div class="hp"><i id="hp2"></i></div></div>
+  </div>
+  <div id="bigmsg"></div>
+  <div id="kick"><div class="cap">PRESS SPACE!</div><div class="meter"><div class="needle" id="needle"></div></div></div>
+  <div id="tip"></div>
+  <div class="keys" id="keys"></div>
+  <button class="btn grey small" id="pause">MENU</button>
+</div>
+
+<!-- ============ TITLE ============ -->
+<div class="screen" id="s-title">
+  <h1>GRIDIRON<br>SMASH</h1>
+  <p class="sub">Football. Wrestling. Soccer. Three games in one.</p>
+  <div class="row">
+    <button class="btn" id="b-play">PLAY</button>
+    <button class="btn blue" id="b-how">HOW TO PLAY</button>
+  </div>
+</div>
+
+<!-- ============ HOW TO ============ -->
+<div class="screen hidden" id="s-how">
+  <h2>HOW TO PLAY</h2>
+  <p class="sub">
+    <b>MOVE:</b> Arrow keys or W A S D. Press two at once to run diagonally.<br><br>
+    <b>SPACE:</b> Spin away from tacklers (football), PUNCH (wrestling), SHOOT (soccer)<br><br>
+    <b>E:</b> Throw the ball (football), BIG SLAM (wrestling), BIG KICK (soccer)<br><br>
+    <b>SHIFT:</b> Run super fast<br><br>
+    In soccer, run at the ball and it sticks to your feet. A yellow ring shows you have it.<br><br>
+    Player 2 uses <b>I J K L</b> to move, <b>G</b> to hit, <b>H</b> for special.
+  </p>
+  <button class="btn" id="b-how-back">OK GOT IT</button>
+</div>
+
+<!-- ============ MODE ============ -->
+<div class="screen hidden" id="s-mode">
+  <h2>PICK A GAME</h2>
+  <div class="row">
+    <button class="btn" id="b-football">FOOTBALL</button>
+    <button class="btn red" id="b-wrestle">WRESTLING</button>
+    <button class="btn blue" id="b-soccer">SOCCER</button>
+  </div>
+  <button class="btn grey small" id="b-mode-back">BACK</button>
+</div>
+
+<!-- ============ PLAYERS ============ -->
+<div class="screen hidden" id="s-players">
+  <h2>HOW MANY PLAYERS?</h2>
+  <div class="row">
+    <button class="btn" id="b-1p">1 PLAYER</button>
+    <button class="btn blue" id="b-2p">2 PLAYERS</button>
+  </div>
+  <p class="sub" id="p2note"></p>
+  <button class="btn grey small" id="b-players-back">BACK</button>
+</div>
+
+<!-- ============ CHARACTER ============ -->
+<div class="screen hidden" id="s-char">
+  <h2 id="chartitle">PICK YOUR GUY</h2>
+  <div class="row" id="charrow"></div>
+  <button class="btn grey small" id="b-char-back">BACK</button>
+</div>
+
+<!-- ============ RESULT ============ -->
+<div class="screen hidden" id="s-result">
+  <h1 id="r-title">TOUCHDOWN!</h1>
+  <p class="sub" id="r-body"></p>
+  <div class="row">
+    <button class="btn" id="b-again">PLAY AGAIN</button>
+    <button class="btn grey" id="b-menu">MAIN MENU</button>
+  </div>
+</div>
+
+<div id="loading">LOADING...</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
