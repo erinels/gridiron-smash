@@ -15,6 +15,25 @@ Play it here: **https://erinels.github.io/gridiron-smash/**
 Pick your character before every match. Play alone or with a friend on the same
 keyboard, or on the same phone or tablet.
 
+## Wrestling: the belt run
+
+Play wrestling on your own and you get two ways to fight.
+
+**BELT RUN.** Fight all five wrestlers, one after the other. Win a fight and you
+go straight to the next one. The BOSS is last. Beat him and you are the champion.
+The game remembers how far you got.
+
+**PICK YOUR RIVAL.** Choose any wrestler and fight only that one. A gold tick
+shows who you have already beaten.
+
+| Wrestler | What he is like |
+| --- | --- |
+| **THE ROOKIE** | New guy. Small and quick. Easy. |
+| **EL TIGRE** | Masked flyer. Very fast. |
+| **BIG RIG** | Huge and slow. Big hits. |
+| **THE VIPER** | Sneaky. Hits very fast. |
+| **KING SMASH** | THE BOSS. Gold mask. Massive. Gets up fast, and gets angry when he is hurt. |
+
 ## Controls
 
 ### Keyboard

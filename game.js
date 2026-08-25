@@ -57,7 +57,8 @@ var SFX = {
   score:   function () { [0, 110, 220, 380].forEach(function (d, i) { setTimeout(function () { tone([523, 659, 784, 1047][i], null, 0.26, 'square', 0.14); }, d); }); },
   cheer:   function () { noiseBurst(1.7, 0.2, 700, 1500, 0.6); noiseBurst(1.7, 0.14, 2400, 1600, 0.5); },
   boo:     function () { tone(180, 90, 0.6, 'sawtooth', 0.13); },
-  bell:    function () { tone(880, null, 0.5, 'sine', 0.2); setTimeout(function () { tone(1320, null, 0.6, 'sine', 0.15); }, 90); }
+  bell:    function () { tone(880, null, 0.5, 'sine', 0.2); setTimeout(function () { tone(1320, null, 0.6, 'sine', 0.15); }, 90); },
+  gong:    function () { tone(110, 55, 1.6, 'sine', 0.32); tone(165, 82, 1.4, 'triangle', 0.16); noiseBurst(1.2, 0.16, 260, 70, 0.7); }
 };
 
 // ---------------------------------------------------------------- characters
@@ -79,6 +80,49 @@ var CHARS = {
   }
 };
 var CHAR_LIST = ['wrestler', 'soccer', 'football'];
+
+// ------------------------------------------------- wrestling rivals (not playable)
+// hp    = how much health the rival has (the player always has 100)
+// dmg   = how hard the rival hits the player, 1 = full strength
+// agg   = how often the rival attacks, 1 = normal
+var RIVALS = {
+  rookie: {
+    key: 'rookie', name: 'THE ROOKIE', desc: 'New guy. Small and quick.',
+    skin: 0xe8b98f, jersey: 0x2fa832, pants: 0x16161d, shoes: 0x14141c, hair: 0xd8a13c,
+    helmet: false, headband: false, speed: 1.00, power: 0.72, build: 0.92, num: 2,
+    hp: 80, dmg: 0.30, agg: 0.62,
+    tip: 'THE ROOKIE is small. Run at him and punch a lot!'
+  },
+  tigre: {
+    key: 'tigre', name: 'EL TIGRE', desc: 'Masked flyer. Very fast.',
+    skin: 0xc98a5e, jersey: 0xf07818, pants: 0x16161d, shoes: 0x14141c, hair: 0x241610,
+    helmet: true, headband: false, speed: 1.18, power: 0.92, build: 0.98, num: 3,
+    hp: 100, dmg: 0.38, agg: 0.82,
+    tip: 'EL TIGRE runs fast. Wait for him, then SLAM him!'
+  },
+  bigrig: {
+    key: 'bigrig', name: 'BIG RIG', desc: 'Huge and slow. Big hits.',
+    skin: 0xa9713f, jersey: 0x5b6b7d, pants: 0x16161d, shoes: 0x14141c, hair: 0x2b1c10,
+    helmet: false, headband: true, speed: 0.70, power: 1.30, build: 1.46, num: 4,
+    hp: 125, dmg: 0.44, agg: 0.70,
+    tip: 'BIG RIG is slow. Run around him and hit him from behind!'
+  },
+  viper: {
+    key: 'viper', name: 'THE VIPER', desc: 'Sneaky. Hits very fast.',
+    skin: 0xd8a878, jersey: 0x7b3fd0, pants: 0x16161d, shoes: 0x14141c, hair: 0x101014,
+    helmet: false, headband: true, speed: 1.10, power: 1.08, build: 1.06, num: 5,
+    hp: 115, dmg: 0.48, agg: 0.95,
+    tip: 'THE VIPER hits fast. Keep moving and hit him back!'
+  },
+  king: {
+    key: 'king', name: 'KING SMASH', desc: 'THE BOSS. Gold mask. Massive.',
+    skin: 0x8a5a3b, jersey: 0xd9a326, pants: 0x1a1206, shoes: 0x14141c, hair: 0x120c08,
+    helmet: true, headband: false, speed: 0.90, power: 1.45, build: 1.62, num: 1,
+    hp: 185, dmg: 0.55, agg: 1.15, tough: 0.5, getUp: 0.55, boss: true,
+    tip: 'THE BOSS! Punches hardly hurt him. Use the BIG SLAM!'
+  }
+};
+var RIVAL_LIST = ['rookie', 'tigre', 'bigrig', 'viper', 'king'];
 
 // ---------------------------------------------------------------- number decal
 var numCache = {};
@@ -221,6 +265,7 @@ function makeHuman(cfg, jerseyColor, style) {
 
   // ---- head
   var head = new THREE.Group(); head.position.y = 0.60; torso.add(head);
+  head.scale.setScalar(1 + Math.max(0, b - 1) * 0.4);   // big builds get a bigger head, not a pin head
   var neck = cyl(0.055, 0.062, 0.10, skinM); neck.position.y = 0.04; head.add(neck);
   var skull = sph(0.118, skinM, 18); skull.position.y = 0.19; skull.scale.set(1, 1.12, 1.02); head.add(skull);
   var jaw = box(0.15, 0.09, 0.15, skinM); jaw.position.set(0, 0.125, 0.015); head.add(jaw);
@@ -346,7 +391,7 @@ function makeSoccerBall() {
 }
 
 // ---------------------------------------------------------------- crowd
-function makeCrowd(scene, seats) {
+function makeCrowd(scene, seats, boss) {
   var count = seats.length;
   if (!count) return null;
   var geo = new THREE.BoxGeometry(0.42, 0.62, 0.36);
@@ -360,7 +405,8 @@ function makeCrowd(scene, seats) {
     dummy.scale.set(rand(0.85, 1.15), rand(0.85, 1.25), rand(0.85, 1.15));
     dummy.updateMatrix();
     im.setMatrixAt(i, dummy.matrix);
-    col.setHSL(Math.random(), rand(0.3, 0.85), rand(0.32, 0.7));
+    if (boss) col.setHSL(rand(0.03, 0.12), rand(0.55, 0.95), rand(0.18, 0.42));
+    else col.setHSL(Math.random(), rand(0.3, 0.85), rand(0.32, 0.7));
     im.setColorAt(i, col);
   }
   im.instanceMatrix.needsUpdate = true;
@@ -721,11 +767,14 @@ function loop() {
 }
 
 // ---------------------------------------------------------------- UI plumbing
-var screens = ['s-title', 's-how', 's-mode', 's-players', 's-char', 's-result'];
+var screens = ['s-title', 's-how', 's-mode', 's-players', 's-char', 's-wmode', 's-rival', 's-result'];
+var CHAR_IDS = CHAR_LIST.map(function (k) { return 'c:' + k; });
+var RIVAL_IDS = RIVAL_LIST.map(function (k) { return 'r:' + k; });
 function show(id) {
   screens.forEach(function (s) { $(s).classList.toggle('hidden', s !== id); });
   $('hud').classList.toggle('on', id === null);
-  previewOn = (id === 's-char');
+  previewOn = (id === 's-char' || id === 's-rival');
+  previewKeys = id === 's-char' ? CHAR_IDS : id === 's-rival' ? RIVAL_IDS : [];
 }
 function bigMsg(text, ms) {
   var el = $('bigmsg');
@@ -749,6 +798,7 @@ function setScorebar(cells) {
 
 // ---------------------------------------------------------------- character preview
 var previewOn = false, previewRenderer = null, previewScene = null, previewCam = null, previewModels = {}, previewCanvases = {};
+var previewKeys = [];   // ids of the cards that are on screen right now
 function buildPreviews() {
   previewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   previewRenderer.setSize(380, 380);
@@ -762,33 +812,55 @@ function buildPreviews() {
   var dl = new THREE.DirectionalLight(0xffffff, 0.85); dl.position.set(3, 6, 5); previewScene.add(dl);
   var dl2 = new THREE.DirectionalLight(0x88bbff, 0.4); dl2.position.set(-4, 2, -3); previewScene.add(dl2);
 
-  var row = $('charrow'); row.innerHTML = '';
-  CHAR_LIST.forEach(function (k) {
-    var cfg = CHARS[k];
-    var card = document.createElement('div'); card.className = 'card';
+  buildCardRow('charrow', CHAR_LIST, CHARS, null, 'c:', function (k) { pickChar(k); });
+  buildCardRow('rivalrow', RIVAL_LIST, RIVALS, 'wwe', 'r:', function (k) { pickRival(k); });
+}
+function buildCardRow(rowId, list, table, style, prefix, onPick) {
+  var row = $(rowId); row.innerHTML = '';
+  var made = [];
+  list.forEach(function (k) {
+    var cfg = table[k];
+    var id = prefix + k;
+    var card = document.createElement('div');
+    card.className = 'card' + (cfg.boss ? ' boss' : '');
+    card.id = 'card-' + id;
     var cv = document.createElement('canvas'); cv.width = 380; cv.height = 380;
     card.appendChild(cv);
     var nm = document.createElement('div'); nm.className = 'name'; nm.textContent = cfg.name; card.appendChild(nm);
     var ds = document.createElement('div'); ds.className = 'desc'; ds.textContent = cfg.desc; card.appendChild(ds);
-    card.addEventListener('click', function () { pickChar(k); });
+    card.addEventListener('click', function () { onPick(k); });
     row.appendChild(card);
-    previewCanvases[k] = cv.getContext('2d');
-    var m = makeHuman(cfg);
+    previewCanvases[id] = cv.getContext('2d');
+    var m = makeHuman(cfg, undefined, style);
     m.traverse(function (o) { if (o.isMesh) o.castShadow = false; });
-    previewModels[k] = m;
+    previewModels[id] = m;
+    made.push({ m: m, bb: new THREE.Box3().setFromObject(m) });
+  });
+  // one scale for the whole row, set by the biggest guy, so a small guy still looks small
+  var s = 99, tall = made[0];
+  made.forEach(function (e) {
+    var mh = Math.max(0.5, e.bb.max.y - e.bb.min.y);
+    var mw = Math.max(0.3, Math.max(e.bb.max.x - e.bb.min.x, e.bb.max.z - e.bb.min.z));
+    var fit = Math.min(1.36 / mh, 1.35 / mw);
+    if (fit < s) { s = fit; tall = e; }
+  });
+  var yOff = 0.92 - (tall.bb.min.y + tall.bb.max.y) * 0.5 * s;
+  made.forEach(function (e) {
+    e.m.scale.setScalar(s);
+    e.m.position.y = yOff + (tall.bb.min.y - e.bb.min.y) * s;   // every pair of feet on the same line
   });
 }
 var pvT = 0;
 function updatePreviews(dt) {
   pvT += dt;
-  CHAR_LIST.forEach(function (k, i) {
-    var m = previewModels[k];
+  previewKeys.forEach(function (id, i) {
+    var m = previewModels[id];
     previewScene.add(m);
     m.rotation.y = Math.sin(pvT * 0.65 + i * 0.7) * 1.05;
     poseIdle(m, dt);
     previewRenderer.render(previewScene, previewCam);
     previewScene.remove(m);
-    var ctx = previewCanvases[k];
+    var ctx = previewCanvases[id];
     ctx.clearRect(0, 0, 380, 380);
     ctx.drawImage(previewRenderer.domElement, 0, 0);
   });
@@ -797,10 +869,48 @@ function updatePreviews(dt) {
 // ---------------------------------------------------------------- flow state
 var mode = 'football', nPlayers = 1, pick1 = 'football', pick2 = 'wrestler', pickingFor = 1;
 
+// wrestling, 1 player only
+var wSub = 'belt';         // 'belt' = beat them all in a row, 'pick' = fight one you choose
+var beltIdx = 0;           // which fight of the belt run we are on
+var rivalKey = 'rookie';   // the rival for a single fight
+var beltBest = loadBelt(); // how many belt-run fights have ever been won
+var onAgain = null;        // what the big button on the result screen does
+
+function loadBelt() {
+  try { return clamp(parseInt(localStorage.getItem('gs_belt') || '0', 10) || 0, 0, RIVAL_LIST.length); }
+  catch (e) { return 0; }
+}
+function saveBelt(n) {
+  beltBest = Math.max(beltBest, n);
+  try { localStorage.setItem('gs_belt', String(beltBest)); } catch (e) { }
+}
+function rivalOf(i) { return RIVALS[RIVAL_LIST[clamp(i, 0, RIVAL_LIST.length - 1)]]; }
+function showWMode() {
+  var n = RIVAL_LIST.length;
+  $('beltnote').innerHTML = beltBest >= n
+    ? 'BELT RUN: fight all ' + n + ' wrestlers. The BOSS is last. <b>You beat them all before!</b>'
+    : 'BELT RUN: fight all ' + n + ' wrestlers. The BOSS is last. Best so far: <b>' + beltBest + ' of ' + n + '</b>.';
+  show('s-wmode');
+}
+function showRivals() {
+  RIVAL_LIST.forEach(function (k, i) {
+    var card = $('card-r:' + k);
+    var old = card.querySelector('.tick');
+    if (old) card.removeChild(old);
+    if (i < beltBest) {
+      var t = document.createElement('div'); t.className = 'tick'; t.textContent = '\u2713';
+      card.appendChild(t);
+    }
+  });
+  show('s-rival');
+}
+function pickRival(k) { rivalKey = k; startGame(); }
+
 function pickChar(k) {
   if (pickingFor === 1) {
     pick1 = k;
     if (nPlayers === 2) { pickingFor = 2; $('chartitle').textContent = 'PLAYER 2: PICK YOUR GUY'; return; }
+    if (mode === 'wrestle' && wSub === 'pick') { pickingFor = 1; showRivals(); return; }
   } else { pick2 = k; }
   pickingFor = 1;
   startGame();
@@ -828,14 +938,17 @@ function toMenu() {
   setTip('');
   bigMsg('', 1);
   resetTouch();
+  onAgain = null;
   show('s-title');
 }
-function finish(title, body, gold) {
+function finish(title, body, again) {
   clearGameTimers();
   if (current && current.dispose) current.dispose();
   current = null;
   setTip('');
   resetTouch();
+  onAgain = again || null;
+  $('b-again').textContent = (again && again.label) || 'PLAY AGAIN';
   $('r-title').textContent = title;
   $('r-body').innerHTML = body;
   show('s-result');
@@ -1390,21 +1503,29 @@ function Football(charKey, char2Key, np) {
 //                          WRESTLING
 // =================================================================
 function Wrestle(charKey, char2Key, np) {
+  // who you fight
+  var c1 = CHARS[charKey];
+  var belt = (np === 1 && wSub === 'belt');
+  var rival = (np === 1) ? (belt ? rivalOf(beltIdx) : (RIVALS[rivalKey] || RIVALS.rookie)) : null;
+  var c2 = (np === 2) ? CHARS[char2Key] : rival;
+  var BOSS = !!(rival && rival.boss);
+  var AGG = rival ? rival.agg : 1;
+
   var scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0f18);
-  scene.fog = new THREE.Fog(0x0b0f18, 40, 130);
+  scene.background = new THREE.Color(BOSS ? 0x140a06 : 0x0b0f18);
+  scene.fog = new THREE.Fog(BOSS ? 0x140a06 : 0x0b0f18, 40, 130);
 
   var camera = new THREE.PerspectiveCamera(52, W / H, 0.5, 300);
   camera.position.set(0, 8, 13);
 
-  scene.add(new THREE.HemisphereLight(0x8fb0e8, 0x2a2030, 0.45));
+  scene.add(new THREE.HemisphereLight(BOSS ? 0xe8a45c : 0x8fb0e8, 0x2a2030, 0.45));
   var key1 = new THREE.SpotLight(0xffffff, 1.25, 90, 0.8, 0.45, 1);
   key1.position.set(6, 20, 8); key1.castShadow = true;
   key1.shadow.mapSize.set(2048, 2048);
   scene.add(key1); scene.add(key1.target);
-  var key2 = new THREE.SpotLight(0xffd7a0, 0.75, 90, 0.9, 0.6, 1);
+  var key2 = new THREE.SpotLight(BOSS ? 0xffc23a : 0xffd7a0, BOSS ? 1.15 : 0.75, 90, 0.9, 0.6, 1);
   key2.position.set(-8, 18, -6); scene.add(key2);
-  var rim = new THREE.DirectionalLight(0x88aaff, 0.35); rim.position.set(-6, 8, -14); scene.add(rim);
+  var rim = new THREE.DirectionalLight(BOSS ? 0xff7a3a : 0x88aaff, 0.35); rim.position.set(-6, 8, -14); scene.add(rim);
   var fill = new THREE.DirectionalLight(0xffffff, 0.28); fill.position.set(0, 6, 18); scene.add(fill);
 
   // arena floor
@@ -1422,12 +1543,13 @@ function Wrestle(charKey, char2Key, np) {
     var c = document.createElement('canvas'); c.width = 1024; c.height = 128;
     var g = c.getContext('2d');
     var grd = g.createLinearGradient(0, 0, 0, 128);
-    grd.addColorStop(0, '#c0182f'); grd.addColorStop(1, '#6d0b1a');
+    if (BOSS) { grd.addColorStop(0, '#d9a326'); grd.addColorStop(1, '#5a3c05'); }
+    else { grd.addColorStop(0, '#c0182f'); grd.addColorStop(1, '#6d0b1a'); }
     g.fillStyle = grd; g.fillRect(0, 0, 1024, 128);
-    g.fillStyle = '#ffd34d';
+    g.fillStyle = BOSS ? '#1a1206' : '#ffd34d';
     g.font = '900 74px "Trebuchet MS", sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('S M A S H   A R E N A', 512, 68);
+    g.fillText(BOSS ? 'T I T L E   M A T C H' : 'S M A S H   A R E N A', 512, 68);
     return srgbTex(c);
   })();
   [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(function (n) {
@@ -1442,17 +1564,17 @@ function Wrestle(charKey, char2Key, np) {
   var matTex = (function () {
     var c = document.createElement('canvas'); c.width = c.height = 512;
     var g = c.getContext('2d');
-    g.fillStyle = '#1b4a80'; g.fillRect(0, 0, 512, 512);
-    g.strokeStyle = '#ffffff'; g.lineWidth = 16;
+    g.fillStyle = BOSS ? '#2a0d0d' : '#1b4a80'; g.fillRect(0, 0, 512, 512);
+    g.strokeStyle = BOSS ? '#ffd34d' : '#ffffff'; g.lineWidth = 16;
     g.strokeRect(26, 26, 460, 460);
-    g.strokeStyle = '#c0182f'; g.lineWidth = 8;
+    g.strokeStyle = BOSS ? '#8a1520' : '#c0182f'; g.lineWidth = 8;
     g.strokeRect(52, 52, 408, 408);
     g.fillStyle = '#ffd34d';
     g.save(); g.translate(256, 256); g.rotate(-0.0);
     g.font = '900 62px "Trebuchet MS", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('SMASH', 0, -20);
-    g.fillStyle = '#ffffff';
-    g.fillText('ARENA', 0, 46);
+    g.fillText(BOSS ? 'TITLE' : 'SMASH', 0, -20);
+    g.fillStyle = BOSS ? '#ffd34d' : '#ffffff';
+    g.fillText(BOSS ? 'MATCH' : 'ARENA', 0, 46);
     g.restore();
     var t = srgbTex(c); return t;
   })();
@@ -1460,8 +1582,8 @@ function Wrestle(charKey, char2Key, np) {
   matTop.rotation.x = -Math.PI / 2; matTop.position.y = ringH + 0.01; matTop.receiveShadow = true; scene.add(matTop);
 
   // posts + ropes
-  var postM = mat(0xc0182f, 0.5);
-  var ropeCols = [0xffffff, 0x1f7fd0, 0xc0182f];
+  var postM = mat(BOSS ? 0x8a1520 : 0xc0182f, 0.5);
+  var ropeCols = BOSS ? [0xffd34d, 0xf5c518, 0xffd34d] : [0xffffff, 0x1f7fd0, 0xc0182f];
   [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (c) {
     var p = cyl(0.22, 0.22, 3.6, postM, 12);
     p.position.set(c[0] * RING, ringH + 1.8, c[1] * RING);
@@ -1491,45 +1613,62 @@ function Wrestle(charKey, char2Key, np) {
   }
 
   // tiered crowd bowl around the ring
-  makeCrowd(scene, buildBowl(scene, { rows: 9, innerR: 8.5, stepD: 1.8, stepH: 0.62, y0: 0.2, seatGap: 1.5 }));
+  makeCrowd(scene, buildBowl(scene, { rows: 9, innerR: 8.5, stepD: 1.8, stepH: 0.62, y0: 0.2, seatGap: 1.5 }), BOSS);
 
   var confetti = makeConfetti(scene);
 
   // fighters
-  var c1 = CHARS[charKey];
-  var c2Key = (np === 2) ? char2Key : CHAR_LIST[(CHAR_LIST.indexOf(charKey) + 1) % 3];
-  var c2 = CHARS[c2Key];
-
   function fighter(cf, jersey, x, facing) {
     var o = makeHuman(cf, jersey, 'wwe');
-    o.scale.setScalar(1.15);
+    o.scale.setScalar(cf.boss ? 1.3 : 1.15);
     scene.add(o);
     return {
       o: o, cfg: cf,
       p: new THREE.Vector3(x, ringH, 0),
       v: new THREE.Vector3(),
-      face: { a: facing }, hp: 100, atkCd: 0, specCd: 0,
+      face: { a: facing }, hp: 100, hpMax: 100, atkCd: 0, specCd: 0,
       stun: 0, anim: 0, animType: '', down: 0, blockT: 0, dmgMul: 1,
       air: 0, airV: 0, spin: 0
     };
   }
   var A = fighter(c1, 0x1f7fd0, -2.6, Math.PI / 2);
-  var B = fighter(c2, 0xc0182f, 2.6, -Math.PI / 2);
-  if (np === 1) B.dmgMul = 0.5;   // the computer hits softer, so a kid can win
+  var B = fighter(c2, np === 2 ? 0xc0182f : c2.jersey, 2.6, -Math.PI / 2);
+  if (np === 1) {
+    B.dmgMul = rival.dmg;          // the computer hits softer, so a kid can win
+    B.hpMax = rival.hp; B.hp = rival.hp;
+  }
+
+  // a gold spotlight ring on the mat under the boss
+  var bossRing = null;
+  if (BOSS) {
+    bossRing = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.15, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffc23a, transparent: true, opacity: 0.75, side: THREE.DoubleSide }));
+    bossRing.rotation.x = -Math.PI / 2;
+    bossRing.position.y = ringH + 0.03;
+    scene.add(bossRing);
+  }
 
   $('bars').classList.add('on');
   $('scorebar').style.display = 'none';
   $('f1name').textContent = 'P1 ' + c1.name;
-  $('f2name').textContent = (np === 2 ? 'P2 ' : '') + c2.name;
+  $('f2name').textContent = (np === 2 ? 'P2 ' : '') + c2.name +
+    (belt ? '  ' + (beltIdx + 1) + '/' + RIVAL_LIST.length : '');
 
-  var S = { over: false, t: 0, shake: 0, aiT: 0, aiMode: 'approach', ended: 0 };
+  var S = { over: false, t: 0, shake: 0, aiT: 0, aiMode: 'approach', ended: 0, rage: false };
 
   setKeys(np === 2
     ? [['ARROWS', 'P1 move'], ['SPACE', 'P1 punch'], ['E', 'P1 SLAM'], ['I J K L', 'P2 move'], ['G', 'P2 punch'], ['H', 'P2 SLAM']]
     : [['ARROWS / WASD', 'move'], ['SPACE', 'punch'], ['E', 'BIG SLAM']]);
-  setTip(IS_TOUCH ? 'Get close, then tap PUNCH and SLAM!' : 'Get close, then press SPACE to punch and E to SLAM!');
-  SFX.bell();
-  bigMsg('FIGHT!', 1400);
+  if (np === 1 && rival.tip) setTip(rival.tip);
+  else setTip(IS_TOUCH ? 'Get close, then tap PUNCH and SLAM!' : 'Get close, then press SPACE to punch and E to SLAM!');
+  if (BOSS) {
+    SFX.gong();
+    bigMsg('BOSS FIGHT!', 1600);
+    gameTimer(function () { SFX.bell(); bigMsg('FIGHT!', 1200); }, 1650);
+  } else {
+    SFX.bell();
+    bigMsg(belt ? 'FIGHT ' + (beltIdx + 1) + ' OF ' + RIVAL_LIST.length + '!' : 'FIGHT!', 1400);
+  }
 
   var SLAM_NAMES = ['BODY SLAM!', 'SUPLEX!', 'CLOTHESLINE!', 'POWERBOMB!', 'DDT!', 'CHOKESLAM!'];
   var PUNCH_NAMES = ['CHOP!', 'ELBOW!', 'RIGHT HAND!'];
@@ -1542,6 +1681,7 @@ function Wrestle(charKey, char2Key, np) {
     if (dist < reach && foe.down <= 0) {
       var dmg = (big ? 20 : 8) * me.cfg.power * me.dmgMul;
       if (foe.blockT > 0) dmg *= 0.35;
+      if (!big && foe.cfg.tough) dmg *= foe.cfg.tough;   // the boss shrugs off punches
       foe.hp = Math.max(0, foe.hp - dmg);
       foe.stun = big ? 0.75 : 0.28;
       var away = new THREE.Vector3().subVectors(foe.p, me.p).setY(0).normalize();
@@ -1550,11 +1690,18 @@ function Wrestle(charKey, char2Key, np) {
       if (big) {
         SFX.slam(); S.shake = 0.6;
         bigMsg(SLAM_NAMES[(Math.random() * SLAM_NAMES.length) | 0], 900);
-        foe.down = 1.5;
+        foe.down = 1.5 * (foe.cfg.getUp || 1);
         foe.air = 0.05; foe.airV = 7.5; foe.spin = 1;   // launched, then crashes down
       } else {
         SFX.punch(); S.shake = 0.18;
         if (Math.random() < 0.35) bigMsg(PUNCH_NAMES[(Math.random() * PUNCH_NAMES.length) | 0], 450);
+      }
+      // the boss gets angry when he is hurt
+      if (BOSS && foe === B && !S.rage && foe.hp > 0 && foe.hp < foe.hpMax * 0.4) {
+        S.rage = true;
+        B.dmgMul *= 1.25;
+        SFX.gong();
+        bigMsg('KING SMASH IS ANGRY!', 1500);
       }
       if (foe.hp <= 0) finishMatch(me === A);
     } else {
@@ -1569,12 +1716,40 @@ function Wrestle(charKey, char2Key, np) {
     var w = p1won ? A : B, l = p1won ? B : A;
     l.down = 999;
     confetti.burst(w.p.x, ringH + 2, w.p.z);
-    bigMsg(p1won ? 'YOU WIN!' : (np === 2 ? 'P2 WINS!' : 'YOU LOSE!'), 2500);
+    var last = belt && beltIdx >= RIVAL_LIST.length - 1;
+    if (belt && p1won) saveBelt(beltIdx + 1);
+
+    bigMsg(!p1won ? (np === 2 ? 'P2 WINS!' : 'YOU LOSE!')
+      : (last ? 'YOU ARE CHAMPION!' : 'YOU WIN!'), 2500);
+
     gameTimer(function () {
-      finish(p1won ? 'CHAMPION!' : 'SO CLOSE!',
-        p1won
-          ? 'You beat the ' + l.cfg.name + '! You had <b>' + Math.round(w.hp) + '</b> health left.'
-          : 'The ' + w.cfg.name + ' won this time. Try again and use the BIG SLAM (press E)!');
+      var hpLeft = Math.round(w.hp / w.hpMax * 100);
+      if (np === 2) {
+        finish(p1won ? 'PLAYER 1 WINS!' : 'PLAYER 2 WINS!',
+          'The ' + w.cfg.name + ' won with <b>' + hpLeft + '%</b> health left.');
+        return;
+      }
+      if (!p1won) {
+        finish('SO CLOSE!',
+          '<b>' + B.cfg.name + '</b> won this time. Get close, punch, then use the BIG SLAM!',
+          { label: 'TRY AGAIN', fn: startGame });
+        return;
+      }
+      if (!belt) {
+        finish('YOU WIN!',
+          'You beat <b>' + B.cfg.name + '</b>! You had <b>' + hpLeft + '%</b> health left.',
+          { label: 'FIGHT AGAIN', fn: startGame });
+        return;
+      }
+      if (last) {
+        finish('CHAMPION!',
+          'You beat all ' + RIVAL_LIST.length + ' wrestlers AND the BOSS. You are the champion!');
+        return;
+      }
+      beltIdx++;
+      finish('WINNER!',
+        'Fight ' + beltIdx + ' of ' + RIVAL_LIST.length + ' done! Next up: <b>' + rivalOf(beltIdx).name + '</b>.',
+        { label: 'NEXT FIGHT', fn: startGame });
     }, 2600);
   }
 
@@ -1682,12 +1857,14 @@ function Wrestle(charKey, char2Key, np) {
     S.aiRest = Math.max(0, (S.aiRest || 0) - dt);
     var dist = A.p.distanceTo(B.p);
     if (S.aiT <= 0) {
-      S.aiT = rand(0.35, 0.9);
+      var ag = AGG * (S.rage ? 1.3 : 1);
+      S.aiT = rand(0.35, 0.9) / ag;
       var roll = Math.random();
+      var pAtk = 0.34 * ag, pSlam = pAtk + 0.12 * ag;
       if (dist > 4) S.aiMode = 'approach';
-      else if (roll < 0.34) S.aiMode = 'attack';
-      else if (roll < 0.46) S.aiMode = 'slam';
-      else if (roll < 0.76) S.aiMode = 'circle';
+      else if (roll < pAtk) S.aiMode = 'attack';
+      else if (roll < pSlam) S.aiMode = 'slam';
+      else if (roll < pSlam + 0.30) S.aiMode = 'circle';
       else S.aiMode = 'back';
     }
     var to = new THREE.Vector3().subVectors(A.p, B.p).setY(0);
@@ -1699,10 +1876,10 @@ function Wrestle(charKey, char2Key, np) {
     else if (S.aiMode === 'circle') { dir = norm(-to.z, to.x); }
     else if (S.aiMode === 'attack') {
       if (dist > 2.1) dir = norm(to.x, to.z);
-      else if (S.aiRest <= 0) { atk = B.atkCd <= 0; if (atk) S.aiRest = rand(0.5, 1.0); }
+      else if (S.aiRest <= 0) { atk = B.atkCd <= 0; if (atk) S.aiRest = rand(0.5, 1.0) / (AGG * (S.rage ? 1.3 : 1)); }
     } else if (S.aiMode === 'slam') {
       if (dist > 2.5) dir = norm(to.x, to.z);
-      else if (S.aiRest <= 0) { spec = B.specCd <= 0; if (spec) S.aiRest = rand(1.0, 1.8); }
+      else if (S.aiRest <= 0) { spec = B.specCd <= 0; if (spec) S.aiRest = rand(1.0, 1.8) / (AGG * (S.rage ? 1.3 : 1)); }
     }
     B.blockT = (S.aiMode === 'back' || S.aiMode === 'circle') ? 0.2 : 0;
     return { dir: dir, atk: atk, spec: spec };
@@ -1728,8 +1905,15 @@ function Wrestle(charKey, char2Key, np) {
     ctrl(A, B, d1, a1, s1, dt);
     ctrl(B, A, d2, a2, s2, dt);
 
-    $('hp1').style.width = A.hp + '%';
-    $('hp2').style.width = B.hp + '%';
+    $('hp1').style.width = (A.hp / A.hpMax * 100) + '%';
+    $('hp2').style.width = (B.hp / B.hpMax * 100) + '%';
+
+    if (bossRing) {
+      bossRing.position.x = B.p.x; bossRing.position.z = B.p.z;
+      bossRing.material.color.setHex(S.rage ? 0xff3a1e : 0xffc23a);
+      bossRing.material.opacity = 0.45 + Math.sin(S.t * (S.rage ? 11 : 4)) * 0.25;
+      bossRing.visible = B.air < 0.4;
+    }
 
     confetti.update(dt);
 
@@ -1758,7 +1942,9 @@ function Wrestle(charKey, char2Key, np) {
         cam: camera.position.toArray().map(function (v) { return +v.toFixed(2); }),
         A: A.p.toArray().map(function (v) { return +v.toFixed(2); }),
         B: B.p.toArray().map(function (v) { return +v.toFixed(2); }),
-        Avis: A.o.visible, Bvis: B.o.visible, RING: RING, ringH: ringH
+        Avis: A.o.visible, Bvis: B.o.visible, RING: RING, ringH: ringH,
+        hp1: +A.hp.toFixed(1), hp2: +B.hp.toFixed(1), hpMax2: B.hpMax,
+        foe: c2.name, boss: BOSS, belt: belt, beltIdx: beltIdx, over: S.over
       };
     },
     dispose: function () {
@@ -2326,11 +2512,30 @@ function wire() {
   $('b-football').onclick = function () { mode = 'football'; $('p2note').textContent = '2 players: Player 1 runs with the ball. Player 2 is the tackler with the red arrow.'; show('s-players'); };
   $('b-wrestle').onclick = function () { mode = 'wrestle'; $('p2note').textContent = '2 players: fight each other in the ring!'; show('s-players'); };
   $('b-soccer').onclick = function () { mode = 'soccer'; $('p2note').textContent = '2 players: Blue shoots one way, Red shoots the other way. Most goals wins!'; show('s-players'); };
-  $('b-1p').onclick = function () { nPlayers = 1; pickingFor = 1; $('chartitle').textContent = 'PICK YOUR GUY'; show('s-char'); };
+  $('b-1p').onclick = function () {
+    nPlayers = 1; pickingFor = 1;
+    $('chartitle').textContent = 'PICK YOUR GUY';
+    if (mode === 'wrestle') { showWMode(); return; }
+    show('s-char');
+  };
   $('b-2p').onclick = function () { nPlayers = 2; pickingFor = 1; $('chartitle').textContent = 'PLAYER 1: PICK YOUR GUY'; show('s-char'); };
   $('b-players-back').onclick = function () { show('s-mode'); };
-  $('b-char-back').onclick = function () { pickingFor = 1; show('s-players'); };
-  $('b-again').onclick = function () { pickingFor = 1; $('chartitle').textContent = nPlayers === 2 ? 'PLAYER 1: PICK YOUR GUY' : 'PICK YOUR GUY'; show('s-char'); };
+  $('b-belt').onclick = function () { wSub = 'belt'; beltIdx = 0; show('s-char'); };
+  $('b-pickrival').onclick = function () { wSub = 'pick'; show('s-char'); };
+  $('b-wmode-back').onclick = function () { show('s-players'); };
+  $('b-rival-back').onclick = function () { show('s-char'); };
+  $('b-char-back').onclick = function () {
+    pickingFor = 1;
+    if (mode === 'wrestle' && nPlayers === 1) { showWMode(); return; }
+    show('s-players');
+  };
+  $('b-again').onclick = function () {
+    if (onAgain && onAgain.fn) { var f = onAgain.fn; onAgain = null; f(); return; }
+    pickingFor = 1;
+    $('chartitle').textContent = nPlayers === 2 ? 'PLAYER 1: PICK YOUR GUY' : 'PICK YOUR GUY';
+    if (mode === 'wrestle' && nPlayers === 1) { showWMode(); return; }
+    show('s-char');
+  };
   $('b-menu').onclick = function () { toMenu(); };
   $('pause').onclick = function () { toMenu(); };
   window.addEventListener('keydown', function (e) { if (e.code === 'Escape' && current) toMenu(); });
