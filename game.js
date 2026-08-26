@@ -58,7 +58,10 @@ var SFX = {
   cheer:   function () { noiseBurst(1.7, 0.2, 700, 1500, 0.6); noiseBurst(1.7, 0.14, 2400, 1600, 0.5); },
   boo:     function () { tone(180, 90, 0.6, 'sawtooth', 0.13); },
   bell:    function () { tone(880, null, 0.5, 'sine', 0.2); setTimeout(function () { tone(1320, null, 0.6, 'sine', 0.15); }, 90); },
-  gong:    function () { tone(110, 55, 1.6, 'sine', 0.32); tone(165, 82, 1.4, 'triangle', 0.16); noiseBurst(1.2, 0.16, 260, 70, 0.7); }
+  gong:    function () { tone(110, 55, 1.6, 'sine', 0.32); tone(165, 82, 1.4, 'triangle', 0.16); noiseBurst(1.2, 0.16, 260, 70, 0.7); },
+  swish:   function () { noiseBurst(0.34, 0.2, 5200, 1400, 0.9); },
+  clank:   function () { tone(1400, 700, 0.22, 'square', 0.12); noiseBurst(0.18, 0.14, 3000, 900, 1.4); },
+  dribble: function () { tone(260, 150, 0.09, 'sine', 0.13); noiseBurst(0.07, 0.1, 900, 300, 1); }
 };
 
 // ---------------------------------------------------------------- characters
@@ -77,9 +80,15 @@ var CHARS = {
     key: 'football', name: 'FOOTBALL PLAYER', desc: 'Good at everything. Has a helmet.',
     skin: 0x8a5a3b, jersey: 0x2fa832, pants: 0xededed, shoes: 0x14141c, hair: 0x120c08,
     helmet: true, headband: false, speed: 1.02, power: 1.08, build: 1.10, num: 7
+  },
+  hooper: {
+    key: 'hooper', name: 'HOOPER', desc: 'Very tall. Jumps the highest.',
+    skin: 0x7a4a2c, jersey: 0xf07818, pants: 0xf07818, shoes: 0xf4f4f4, hair: 0x140d08,
+    helmet: false, headband: true, speed: 1.10, power: 0.86, build: 0.94, num: 23,
+    size: 1.14, jump: 1.25
   }
 };
-var CHAR_LIST = ['wrestler', 'soccer', 'football'];
+var CHAR_LIST = ['wrestler', 'soccer', 'football', 'hooper'];
 
 // ------------------------------------------------- wrestling rivals (not playable)
 // hp    = how much health the rival has (the player always has 100)
@@ -168,6 +177,7 @@ function makeHuman(cfg, jerseyColor, style) {
 
   var root = new THREE.Group();
   var body = new THREE.Group();          // whole body, used for knock-down tilt
+  if (cfg.size) body.scale.setScalar(cfg.size);
   root.add(body);
 
   // ---- legs
@@ -386,6 +396,21 @@ function makeSoccerBall() {
     p.position.set(0.145 * Math.sin(e) * Math.cos(a), 0.145 * Math.cos(e), 0.145 * Math.sin(e) * Math.sin(a));
     g.add(p);
   }
+  g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+// orange ball with the black seams, so it reads as a basketball at any size
+function makeBasketball(r) {
+  var g = new THREE.Group();
+  g.add(sph(r, mat(0xe0761c, 0.72), 20));
+  var seamM = mat(0x1a1008, 0.7);
+  function ring(rx, ry, rz) {
+    var t = new THREE.Mesh(new THREE.TorusGeometry(r * 0.995, r * 0.045, 6, 26), seamM);
+    t.rotation.set(rx, ry, rz); g.add(t);
+  }
+  ring(Math.PI / 2, 0, 0);            // round the belly
+  ring(0, 0, 0);                      // over the top one way
+  ring(0, Math.PI / 2, 0);            // over the top the other way
   g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
   return g;
 }
@@ -719,7 +744,8 @@ function initTouch() {
 var TOUCH_LABELS = {
   football: { p1: ['SPIN', 'THROW'], p2: ['TACKLE', ''] },
   wrestle: { p1: ['PUNCH', 'SLAM'], p2: ['PUNCH', 'SLAM'] },
-  soccer: { p1: ['SHOOT', 'BIG KICK'], p2: ['SHOOT', 'BIG KICK'] }
+  soccer: { p1: ['SHOOT', 'BIG KICK'], p2: ['SHOOT', 'BIG KICK'] },
+  basket: { p1: ['SHOOT', 'BIG SHOT'], p2: ['SHOOT', 'BIG SHOT'] }
 };
 function setTouchLabels() {
   if (!IS_TOUCH) return;
@@ -925,7 +951,8 @@ function startGame() {
   if (current && current.dispose) current.dispose();
   current = (mode === 'football') ? Football(pick1, pick2, nPlayers)
     : (mode === 'soccer') ? Soccer(pick1, pick2, nPlayers)
-      : Wrestle(pick1, pick2, nPlayers);
+      : (mode === 'basket') ? Basket(pick1, pick2, nPlayers)
+        : Wrestle(pick1, pick2, nPlayers);
   window.__g = current;
   resize();
   ac();
@@ -1044,7 +1071,7 @@ function Football(charKey, char2Key, np) {
   var defs = [];
   var NDEF = 5;
   for (var i = 0; i < NDEF; i++) {
-    var dc = CHARS[CHAR_LIST[i % 3]];
+    var dc = CHARS[CHAR_LIST[i % CHAR_LIST.length]];
     var h = makeHuman(dc, DEF_COLOR);
     h.scale.setScalar(PSCALE);
     scene.add(h);
@@ -2111,7 +2138,7 @@ function Soccer(charKey, char2Key, np) {
     };
   }
   var c1 = CHARS[charKey];
-  var c2 = CHARS[np === 2 ? char2Key : CHAR_LIST[(CHAR_LIST.indexOf(charKey) + 1) % 3]];
+  var c2 = CHARS[np === 2 ? char2Key : CHAR_LIST[(CHAR_LIST.indexOf(charKey) + 1) % CHAR_LIST.length]];
 
   var p1 = mkPlayer(c1, 0x1f7fd0, 0, 8, Math.PI);          // attacks -z
   p1.team = 1; p1.human = true;
@@ -2488,9 +2515,639 @@ function Soccer(charKey, char2Key, np) {
   };
 }
 
+// =================================================================
+//                          BASKETBALL
+// =================================================================
+function makeCourtTexture(CW, CL) {
+  var px = 16;
+  var c = document.createElement('canvas');
+  c.width = CW * px; c.height = CL * px;
+  var g = c.getContext('2d');
+  // wood boards
+  g.fillStyle = '#c98a45'; g.fillRect(0, 0, c.width, c.height);
+  for (var i = 0; i < c.height; i += px * 1.6) {
+    g.fillStyle = (i / (px * 1.6)) % 2 ? 'rgba(0,0,0,0.055)' : 'rgba(255,255,255,0.05)';
+    g.fillRect(0, i, c.width, px * 1.6);
+  }
+  g.strokeStyle = 'rgba(90,50,18,0.35)'; g.lineWidth = 1;
+  for (var b = 0; b < c.height; b += px * 1.6) { g.beginPath(); g.moveTo(0, b); g.lineTo(c.width, b); g.stroke(); }
+
+  var cx = c.width / 2, cy = c.height / 2;
+  g.strokeStyle = '#ffffff'; g.lineWidth = px * 0.30; g.lineCap = 'butt';
+  g.strokeRect(px * 1.2, px * 1.2, c.width - px * 2.4, c.height - px * 2.4);   // sideline
+  g.beginPath(); g.moveTo(px * 1.2, cy); g.lineTo(c.width - px * 1.2, cy); g.stroke();  // halfway
+  g.beginPath(); g.arc(cx, cy, px * 3.4, 0, TAU); g.stroke();                  // centre circle
+
+  // three point arc + key at both ends
+  [-1, 1].forEach(function (s) {
+    var baseY = s < 0 ? px * 1.2 : c.height - px * 1.2;
+    var hoopY = baseY + s * px * 2.15;
+    g.beginPath();
+    g.arc(cx, hoopY, px * 12.5, s < 0 ? 0 : Math.PI, s < 0 ? Math.PI : TAU);
+    g.stroke();
+    var kw = px * 4.0, kd = px * 8.0;
+    g.strokeRect(cx - kw, s < 0 ? baseY : baseY - kd, kw * 2, kd);
+    g.beginPath(); g.arc(cx, baseY + s * kd, px * 3.0, 0, TAU); g.stroke();
+  });
+  return srgbTex(c);
+}
+function backboardTexture() {
+  var c = document.createElement('canvas'); c.width = 512; c.height = 320;
+  var g = c.getContext('2d');
+  g.fillStyle = '#f4f7fb'; g.fillRect(0, 0, 512, 320);
+  g.strokeStyle = '#e0761c'; g.lineWidth = 14;
+  g.strokeRect(7, 7, 498, 306);
+  g.lineWidth = 12;
+  g.strokeRect(186, 158, 140, 124);     // the square you aim at
+  return srgbTex(c);
+}
+
+function Basket(charKey, char2Key, np) {
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x141c2b);
+  scene.fog = new THREE.Fog(0x141c2b, 70, 190);
+
+  var camera = new THREE.PerspectiveCamera(52, W / H, 0.5, 400);
+  camera.position.set(0, 13, 32);
+
+  scene.add(new THREE.HemisphereLight(0xffe9c8, 0x2a2438, 0.6));
+  var sun = new THREE.DirectionalLight(0xfff3d8, 1.0);
+  sun.position.set(26, 50, 30);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  var sd = 44;
+  sun.shadow.camera.left = -sd; sun.shadow.camera.right = sd;
+  sun.shadow.camera.top = sd; sun.shadow.camera.bottom = -sd;
+  sun.shadow.camera.far = 160;
+  scene.add(sun); scene.add(sun.target);
+
+  var CW = 26, CL = 36, HW = CW / 2, HL = CL / 2;
+  var RIMH = 4.3;          // how high the rim sits
+  var RIMR = 0.66;         // rim radius
+  var BR = 0.26;           // ball radius
+  var ARC3 = 10.5;         // shoot from further out than this for 3 points
+  var DUNKR = 5.2;         // get this close and SHOOT turns into a dunk
+  var G = 26;              // gravity for the ball
+  function rimZ(side) { return side * (HL - 2.15); }
+
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(CW, CL),
+    new THREE.MeshStandardMaterial({ map: makeCourtTexture(CW, CL), roughness: 0.55 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  var outer = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), mat(0x2a2233, 1));
+  outer.rotation.x = -Math.PI / 2; outer.position.y = -0.03; outer.receiveShadow = true; scene.add(outer);
+
+  var seats = [];
+  [-1, 1].forEach(function (s) {
+    seats = seats.concat(buildStand(scene, { axis: 'x', side: s, rows: 9, stepD: 1.7, stepH: 0.82, innerDist: HW + 3, y0: 0.3, length: CL + 14, seatGap: 2.0 }));
+  });
+  [-1, 1].forEach(function (s) {
+    seats = seats.concat(buildStand(scene, { axis: 'z', side: s, rows: 7, stepD: 1.7, stepH: 0.82, innerDist: HL + 4, y0: 0.3, length: CW + 30, seatGap: 2.1 }));
+  });
+  makeCrowd(scene, seats);
+
+  // ---- hoops
+  var bbTex = backboardTexture();
+  var nTex = netTexture();
+  var dunkRings = [];
+  function buildHoop(side) {
+    var g = new THREE.Group();
+    var boardZ = side * (HL - 1.05);
+    // stand behind the baseline
+    var pole = cyl(0.24, 0.28, RIMH + 1.6, mat(0x2b3346, 0.5), 12);
+    pole.position.set(0, (RIMH + 1.6) / 2, side * (HL + 1.6));
+    pole.castShadow = true; g.add(pole);
+    var armBar = box(0.28, 0.24, 2.0, mat(0x2b3346, 0.5));
+    armBar.position.set(0, RIMH + 1.0, side * (HL + 0.6)); g.add(armBar);
+    // backboard
+    var board = new THREE.Mesh(new THREE.BoxGeometry(3.9, 2.4, 0.14),
+      new THREE.MeshStandardMaterial({ map: bbTex, roughness: 0.35 }));
+    board.position.set(0, RIMH + 0.92, boardZ);
+    board.castShadow = true; g.add(board);
+    // rim
+    var rim = new THREE.Mesh(new THREE.TorusGeometry(RIMR, 0.075, 8, 26), mat(0xe0761c, 0.35));
+    rim.rotation.x = -Math.PI / 2;
+    rim.position.set(0, RIMH, rimZ(side));
+    rim.castShadow = true; g.add(rim);
+    var link = box(0.16, 0.1, 1.05, mat(0xe0761c, 0.35));
+    link.position.set(0, RIMH, (boardZ + rimZ(side)) / 2); g.add(link);
+    // net
+    var nm = new THREE.MeshBasicMaterial({
+      map: nTex.clone(), transparent: true, opacity: 0.8,
+      side: THREE.DoubleSide, depthWrite: false
+    });
+    nm.map.repeat.set(3.4, 1.2); nm.map.needsUpdate = true;
+    var net = new THREE.Mesh(new THREE.CylinderGeometry(RIMR, RIMR * 0.6, 1.0, 18, 1, true), nm);
+    net.position.set(0, RIMH - 0.5, rimZ(side)); g.add(net);
+    // bright ring on the floor under the hoop, so a kid can see where to run
+    var spotFill = new THREE.Mesh(new THREE.CircleGeometry(DUNKR, 40),
+      new THREE.MeshBasicMaterial({ color: 0xffd34d, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }));
+    spotFill.rotation.x = -Math.PI / 2;
+    spotFill.position.set(0, 0.04, rimZ(side));
+    g.add(spotFill);
+    var spot = new THREE.Mesh(new THREE.RingGeometry(DUNKR - 0.5, DUNKR, 40),
+      new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+    spot.rotation.x = -Math.PI / 2;
+    spot.position.set(0, 0.06, rimZ(side));
+    g.add(spot);
+    dunkRings.push(spot, spotFill);
+    scene.add(g);
+    return g;
+  }
+  buildHoop(-1); buildHoop(1);
+
+  var confetti = makeConfetti(scene);
+
+  var ownRing = new THREE.Mesh(
+    new THREE.RingGeometry(1.2, 1.62, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
+  );
+  ownRing.rotation.x = -Math.PI / 2;
+  ownRing.position.y = 0.07;
+  ownRing.visible = false;
+  scene.add(ownRing);
+
+  // ---- ball
+  var ball = makeBasketball(BR); scene.add(ball);
+  var bp = new THREE.Vector3(0, BR, 0);
+  var bv = new THREE.Vector3();
+
+  // ---- players
+  var PS = 1.32;
+  function mkPlayer(cfg, jersey, x, z, face) {
+    var o = makeHuman(cfg, jersey);
+    o.scale.setScalar(PS);
+    scene.add(o);
+    return {
+      o: o, cfg: cfg, p: new THREE.Vector3(x, 0, z), v: new THREE.Vector3(),
+      face: { a: face }, shootAnim: 0, cd: 0, noGrab: 0, safe: 0,
+      air: 0, airV: 0, dunkT: 0, dunkTo: -1,
+      team: 0, human: false, role: 'chase',
+      home: new THREE.Vector3(x, 0, z)
+    };
+  }
+  var c1 = CHARS[charKey];
+  var c2 = CHARS[np === 2 ? char2Key : CHAR_LIST[(CHAR_LIST.indexOf(charKey) + 1) % CHAR_LIST.length]];
+
+  var p1 = mkPlayer(c1, 0x1f7fd0, 0, 6, Math.PI);      // attacks the -z hoop
+  p1.team = 1; p1.human = true; p1.attack = -1;
+  var p2 = null;
+  if (np === 2) { p2 = mkPlayer(c2, 0xc0182f, 0, -6, 0); p2.team = 2; p2.human = true; p2.attack = 1; }
+
+  var bots = [];
+  if (np === 1) {
+    var b1 = mkPlayer(c2, 0xc0182f, -6, -6, 0); b1.team = 2; b1.role = 'chase'; bots.push(b1);
+    var b2 = mkPlayer(CHARS.wrestler, 0xc0182f, 5, -15, 0); b2.team = 2; b2.role = 'guard'; bots.push(b2);
+  }
+  function everyone() {
+    var a = [p1];
+    if (p2) a.push(p2);
+    return a.concat(bots);
+  }
+
+  var S = {
+    phase: 'ready', t: 0, clock: 90,
+    s1: 0, s2: 0, shake: 0,
+    best: parseInt(localStorage.getItem('gs_basket_best') || '0', 10),
+    owner: null, loose: 0, stealCd: 0,
+    shotBy: null, shotPts: 0, shotTo: -1, dribT: 0
+  };
+
+  setKeys(np === 2
+    ? [['ARROWS', 'P1 run'], ['SPACE', 'P1 SHOOT'], ['E', 'P1 big shot'], ['I J K L', 'P2 run'], ['G', 'P2 SHOOT'], ['H', 'P2 big shot']]
+    : [['ARROWS / WASD', 'run'], ['SPACE', 'SHOOT'], ['E', 'big shot'], ['SHIFT', 'sprint']]);
+
+  function hud() {
+    var cells = np === 2
+      ? [['BLUE', S.s1, true], ['TIME', Math.max(0, Math.ceil(S.clock))], ['RED', S.s2, true]]
+      : [['POINTS', S.s1, true], ['TIME', Math.max(0, Math.ceil(S.clock))], ['BEST', S.best]];
+    setScorebar(cells);
+  }
+  hud();
+  bigMsg('TIP OFF!', 1100);
+  SFX.whistle();
+  setTip(np === 2 ? 'Run to your own hoop and shoot. Close in = a DUNK!'
+    : (IS_TOUCH ? 'Run into the gold ring and tap SHOOT for a DUNK. Far back = 3 points!'
+      : 'Run into the gold ring and press SPACE for a DUNK. Far back = 3 points!'));
+
+  function tipoff() {
+    bp.set(0, BR, 0); bv.set(0, 0, 0);
+    p1.p.set(0, 0, 6); p1.v.set(0, 0, 0); p1.air = 0; p1.dunkT = 0;
+    if (p2) { p2.p.set(0, 0, -6); p2.v.set(0, 0, 0); p2.air = 0; p2.dunkT = 0; }
+    bots.forEach(function (b) { b.p.copy(b.home); b.v.set(0, 0, 0); b.air = 0; });
+    everyone().forEach(function (pl) { pl.noGrab = 0; pl.cd = 0; pl.safe = 0; });
+    S.stealCd = 0;
+    bots.forEach(function (b) { b.noGrab = 1.6; });   // the kid gets first touch
+    S.phase = 'ready'; S.t = 0;
+    S.owner = null; S.loose = 0; S.shotBy = null;
+  }
+
+  function scored(pts, dunk) {
+    if (S.phase !== 'live') return;
+    var forP1 = S.shotBy ? S.shotBy.team === 1 : true;
+    S.phase = 'score'; S.t = 0;
+    if (forP1) S.s1 += pts; else S.s2 += pts;
+    SFX.swish(); SFX.score(); SFX.cheer();
+    S.shake = 0.4;
+    confetti.burst(bp.x, RIMH, bp.z);
+    bigMsg(dunk ? 'SLAM DUNK!' : (pts === 3 ? 'THREE POINTS!' : 'TWO POINTS!'), 1800);
+    if (np === 1 && S.s1 > S.best) { S.best = S.s1; localStorage.setItem('gs_basket_best', String(S.best)); }
+    S.shotBy = null;
+    hud();
+  }
+
+  function angLerp(a, b, t) {
+    var diff = ((b - a + Math.PI) % TAU + TAU) % TAU - Math.PI;
+    return a + diff * t;
+  }
+
+  function mv(pl, dir, speed, dt) {
+    var ax = 42 * dt;
+    pl.v.x = lerp(pl.v.x, dir.x * speed, clamp(ax, 0, 1));
+    pl.v.z = lerp(pl.v.z, dir.z * speed, clamp(ax, 0, 1));
+    pl.p.x = clamp(pl.p.x + pl.v.x * dt, -HW + 1, HW - 1);
+    pl.p.z = clamp(pl.p.z + pl.v.z * dt, -HL + 1, HL + 1);
+    var sp = Math.hypot(pl.v.x, pl.v.z);
+    if (sp > 0.6) pl.face.a = Math.atan2(pl.v.x, pl.v.z);
+
+    // jump / dunk lift
+    if (pl.air > 0 || pl.airV > 0) {
+      pl.airV -= 30 * dt;
+      pl.air += pl.airV * dt;
+      if (pl.air <= 0) { pl.air = 0; pl.airV = 0; }
+    }
+    pl.o.position.set(pl.p.x, pl.air, pl.p.z);
+    pl.o.rotation.y = angLerp(pl.o.rotation.y, pl.face.a, 1 - Math.pow(0.0006, dt));
+
+    var u = pl.o.userData;
+    if (pl.shootAnim > 0) {
+      pl.shootAnim -= dt;
+      var k = clamp(1 - pl.shootAnim / 0.34, 0, 1);
+      u.armLock = true;
+      var reach = -2.5 * Math.sin(k * Math.PI * 0.9);
+      u.armL.sh.rotation.x = reach; u.armR.sh.rotation.x = reach;
+      u.armL.sh.rotation.z = 0.28; u.armR.sh.rotation.z = -0.28;
+      u.armL.el.rotation.x = -0.5 + k * 0.5; u.armR.el.rotation.x = -0.5 + k * 0.5;
+      u.torso.rotation.x = -0.12 * Math.sin(k * Math.PI);
+      if (pl.air > 0.05) {
+        u.legL.hip.rotation.x = -0.5; u.legR.hip.rotation.x = -0.2;
+        u.legL.knee.rotation.x = 0.8; u.legR.knee.rotation.x = 0.4;
+      }
+    } else {
+      u.armLock = false;
+      if (sp > 0.7) poseRun(pl.o, sp, dt); else poseIdle(pl.o, dt);
+    }
+    return sp;
+  }
+
+  // let go of the ball and stop the same player grabbing it straight back
+  function release(pl, lock) {
+    S.owner = null;
+    S.loose = 0.12;
+    pl.noGrab = lock;
+  }
+
+  // Shoot at the hoop. The aim is solved so the ball would drop straight through
+  // the rim, then a small wobble is added. Close in it becomes a dunk instead.
+  function doShot(pl, big) {
+    var side = pl.attack;
+    var rz = rimZ(side);
+    var dist = Math.hypot(bp.x - 0, bp.z - rz);
+
+    if (dist < DUNKR) {                       // run and dunk
+      pl.dunkT = 0.42; pl.dunkTo = side;
+      pl.shootAnim = 0.55;
+      pl.airV = 12.5 * (pl.cfg.jump || 1);
+      pl.air = 0.001;
+      SFX.spin();
+      bigMsg('DUNK IT!', 600);
+      return;
+    }
+
+    pl.shootAnim = 0.34;
+    pl.airV = 6.5 * (pl.cfg.jump || 1);
+    pl.air = 0.001;
+    var three = dist > ARC3;
+    var t = clamp(0.62 + dist * 0.052, 0.75, 1.8);
+    if (big) t *= 1.18;                       // the big shot floats higher
+    var sy = BR + 2.0;                        // ball leaves from about head height
+    var vx = (0 - bp.x) / t;
+    var vz = (rz - bp.z) / t;
+    var vy = (RIMH + 0.35 - sy) / t + 0.5 * G * t;
+    // wobble: bigger the further out, much smaller on a BIG SHOT, and capped
+    // so a long shot is never hopeless
+    var far = Math.min(dist / ARC3, 1.35);
+    var errAmt = (big ? 0.012 : 0.030) * far;
+    if (!pl.human) errAmt = 0.16;
+    vx += rand(-1, 1) * errAmt * 9;
+    vz += rand(-1, 1) * errAmt * 5;
+    vy += rand(-1, 1) * errAmt * 4;
+
+    bp.y = sy;
+    bv.set(vx, vy, vz);
+    S.shotBy = pl; S.shotPts = three ? 3 : 2; S.shotTo = side;
+    release(pl, 0.5);
+    SFX.kick();
+    bigMsg(big ? 'BIG SHOT!' : (three ? 'THREE!' : 'SHOOT!'), 600);
+  }
+
+  // a bot with the ball just throws it away, so the kid gets it back fast
+  function throwAway(pl) {
+    pl.shootAnim = 0.3;
+    var aim = norm(rand(-0.7, 0.7), 1);
+    bv.set(aim.x * 11, 7, aim.z * 11);
+    S.shotBy = null;
+    release(pl, 0.7);
+    SFX.kick();
+  }
+
+  function finishDunk(pl) {
+    var side = pl.dunkTo;
+    bp.set(0, RIMH + 0.62, rimZ(side));
+    bv.set(0, -7.5, 0);
+    S.shotBy = pl; S.shotPts = 2; S.shotTo = side;
+    release(pl, 0.7);
+    SFX.smash();
+  }
+
+  function ballStep(dt) {
+    if (S.owner) {                       // dribble: the ball sticks and bounces
+      var o = S.owner;
+      var f = new THREE.Vector3(Math.sin(o.face.a), 0, Math.cos(o.face.a));
+      var tx = o.p.x + f.x * 0.8, tz = o.p.z + f.z * 0.8;
+      var k = 1 - Math.pow(0.00002, dt);
+      bp.x = lerp(bp.x, tx, k);
+      bp.z = lerp(bp.z, tz, k);
+      if (o.air > 0.05 || o.shootAnim > 0) {
+        bp.y = lerp(bp.y, o.air + 2.2, 1 - Math.pow(0.0005, dt));   // held up high
+      } else {
+        var bounce = Math.abs(Math.sin(S.t * 8.5));
+        bp.y = BR + bounce * 0.82;
+        S.dribT -= dt;
+        if (bounce < 0.06 && S.dribT <= 0) { SFX.dribble(); S.dribT = 0.22; }
+      }
+      bv.set(0, 0, 0);
+      ball.position.copy(bp);
+      ball.rotation.x -= (o.v.z * dt) * 4;
+      ball.rotation.z += (o.v.x * dt) * 4;
+      return;
+    }
+
+    var prevY = bp.y;
+    bv.y -= G * dt;
+    bp.addScaledVector(bv, dt);
+
+    // through the rim?
+    if (S.phase === 'live' && bv.y < 0) {
+      [-1, 1].forEach(function (side) {
+        var rz = rimZ(side);
+        if (prevY > RIMH && bp.y <= RIMH) {
+          var d = Math.hypot(bp.x - 0, bp.z - rz);
+          if (d < RIMR - BR * 0.35) {
+            var dunk = S.shotBy && Math.hypot(S.shotBy.p.x, S.shotBy.p.z - rz) < DUNKR + 1;
+            if (S.shotBy) scored(S.shotPts, !!dunk);
+          } else if (d < RIMR + 0.42) {
+            // clipped the rim: pop it up and out, it can still drop in
+            bp.y = RIMH + 0.02;
+            bv.y = Math.abs(bv.y) * 0.42 + 1.4;
+            var out = norm(bp.x - 0 || rand(-1, 1), bp.z - rz || rand(-1, 1));
+            bv.x = out.x * 2.6; bv.z = out.z * 2.6;
+            SFX.clank();
+          }
+        }
+      });
+    }
+    // backboard
+    [-1, 1].forEach(function (side) {
+      var bz = side * (HL - 1.05);
+      if (Math.abs(bp.x) < 2.1 && bp.y > RIMH - 0.15 && bp.y < RIMH + 2.2) {
+        if (side < 0 ? bp.z < bz + BR : bp.z > bz - BR) {
+          bp.z = bz + (side < 0 ? BR : -BR);
+          bv.z *= -0.52; bv.x *= 0.8;
+          SFX.thud();
+        }
+      }
+    });
+
+    if (bp.y < BR) {
+      bp.y = BR;
+      if (bv.y < -1.2) { bv.y = -bv.y * 0.62; SFX.thud(); } else bv.y = 0;
+      var fr = 1 - 1.1 * dt;
+      bv.x *= fr; bv.z *= fr;
+      S.shotBy = null;             // it hit the floor, so it cannot score now
+    }
+    if (Math.abs(bp.x) > HW - BR) { bp.x = (bp.x < 0 ? -1 : 1) * (HW - BR); bv.x *= -0.6; }
+    if (Math.abs(bp.z) > HL - BR) { bp.z = (bp.z < 0 ? -1 : 1) * (HL - BR); bv.z *= -0.6; }
+
+    ball.position.copy(bp);
+    ball.rotation.x += bv.z * dt * 2.6;
+    ball.rotation.z -= bv.x * dt * 2.6;
+  }
+
+  // Who has the ball. The human reach is big on purpose: a 5 year old must not
+  // have to line the player up perfectly.
+  function possession(dt) {
+    if (S.loose > 0) S.loose = Math.max(0, S.loose - dt);
+    everyone().forEach(function (pl) { if (pl.noGrab > 0) pl.noGrab = Math.max(0, pl.noGrab - dt); });
+
+    if (S.owner) {
+      var thief = null;
+      if (S.stealCd > 0) S.stealCd = Math.max(0, S.stealCd - dt);
+      if (S.owner.safe > 0) S.owner.safe = Math.max(0, S.owner.safe - dt);
+      var canSteal = S.stealCd <= 0 && S.owner.safe <= 0;
+      everyone().forEach(function (pl) {
+        if (!canSteal || pl === S.owner || pl.team === S.owner.team || pl.noGrab > 0) return;
+        var near = S.owner.human ? 0.85 : 1.4;   // bots must get right on top of the kid
+        if (pl.p.distanceTo(S.owner.p) < near) thief = pl;
+      });
+      if (thief) {
+        S.owner.noGrab = 0.6;
+        S.owner.dunkT = 0;
+        S.owner = thief;
+        S.stealCd = 3.0;                          // no more steals for a bit
+        thief.safe = 0.4;
+        SFX.catchit();
+        bigMsg(thief.human ? 'BALL!' : 'STEAL!', 650);
+      }
+      return;
+    }
+    if (S.loose > 0) return;
+
+    var best = null, bestScore = 1e9;
+    everyone().forEach(function (pl) {
+      if (pl.noGrab > 0) return;
+      var reach = pl.human ? 2.6 : 1.5;
+      var d = Math.hypot(bp.x - pl.p.x, bp.z - pl.p.z);
+      if (d > reach || bp.y > 3.2) return;
+      var score = pl.human ? d - 1.4 : d;        // the human wins a tie
+      if (score < bestScore) { best = pl; bestScore = score; }
+    });
+    if (best) {
+      S.owner = best;
+      S.shotBy = null;
+      best.safe = best.human ? 1.6 : 0.3;         // a moment where nobody can rob the kid
+      SFX.catchit();
+      if (!best.human) best.cd = 0.8;            // bots hold it a beat, so you can chase
+    }
+  }
+
+  function botStep(b, dt) {
+    if (b.cd > 0) b.cd -= dt;
+    var tx, tz, spd;
+    if (S.owner === b) {
+      if (b.cd <= 0) throwAway(b);
+      tx = b.p.x; tz = b.p.z; spd = 0;
+    } else if (b.role === 'chase') {
+      tx = bp.x; tz = bp.z; spd = 7.4;
+    } else {                                     // guard: sit between the ball and the hoop
+      tx = bp.x * 0.5; tz = clamp(bp.z - 5, -HL + 4, HL - 4); spd = 6.8;
+    }
+    var ddx = tx - b.p.x, ddz = tz - b.p.z;
+    var dist = Math.hypot(ddx, ddz);
+    var dir = dist > 0.9 ? norm(ddx, ddz) : { x: 0, z: 0, len: 0 };
+    mv(b, dir, dist > 0.9 ? spd : 0, dt);
+  }
+
+  function spread(dt) {
+    var list = bots.concat(p2 ? [p2] : []);
+    for (var i = 0; i < list.length; i++) {
+      for (var j = i + 1; j < list.length; j++) {
+        var a = list[i], b = list[j];
+        var dx = a.p.x - b.p.x, dz = a.p.z - b.p.z;
+        var d = Math.hypot(dx, dz);
+        if (d < 2.6 && d > 0.0001) {
+          var push = (2.6 - d) * 0.5;
+          a.p.x += (dx / d) * push; a.p.z += (dz / d) * push;
+          b.p.x -= (dx / d) * push; b.p.z -= (dz / d) * push;
+        }
+      }
+    }
+    list.forEach(function (pl) {
+      pl.p.x = clamp(pl.p.x, -HW + 1, HW - 1);
+      pl.p.z = clamp(pl.p.z, -HL + 1, HL + 1);
+      pl.o.position.set(pl.p.x, pl.air, pl.p.z);
+    });
+  }
+
+  // a dunking player lunges at the rim, then stuffs it through
+  function dunkStep(pl, dt) {
+    if (pl.dunkT <= 0) return false;
+    pl.dunkT -= dt;
+    var rz = rimZ(pl.dunkTo);
+    var ddx = 0 - pl.p.x, ddz = rz - pl.p.z;
+    var d = Math.hypot(ddx, ddz);
+    if (d > 1.5) {
+      var dir = norm(ddx, ddz);
+      pl.p.x += dir.x * 11 * dt;
+      pl.p.z += dir.z * 11 * dt;
+    }
+    pl.face.a = Math.atan2(ddx, ddz);
+    if (pl.dunkT <= 0) { pl.dunkT = 0; if (S.owner === pl) finishDunk(pl); }
+    return true;
+  }
+
+  function update(dt) {
+    S.t += dt;
+    if (S.phase === 'live') {
+      S.clock -= dt;
+      if (S.clock <= 0) { S.clock = 0; over(); return; }
+    }
+    if (S.phase === 'ready' && S.t > 0.7) { S.phase = 'live'; S.t = 0; }
+    if (S.phase === 'score' && S.t > 2.2) { tipoff(); }
+
+    var live = S.phase === 'live';
+
+    var d1 = live && !p1.dunkT ? axisP1() : { x: 0, z: 0, len: 0 };
+    var sp1 = 12.6 * c1.speed * (P1.sprint() ? 1.3 : 1);
+    // read the buttons first so a press is never thrown away
+    var shoot1 = live && P1.act(), big1 = live && P1.spec();
+    if (!dunkStep(p1, dt)) mv(p1, d1, d1.len ? sp1 : 0, dt);
+    else mv(p1, { x: 0, z: 0, len: 0 }, 0, dt);
+    if (S.owner === p1 && !p1.dunkT) {
+      if (shoot1) doShot(p1, false);
+      else if (big1) doShot(p1, true);
+    }
+
+    if (p2) {
+      var d2 = live && !p2.dunkT ? axisP2() : { x: 0, z: 0, len: 0 };
+      var sp2 = 12.6 * c2.speed * (P2.sprint() ? 1.3 : 1);
+      var shoot2 = live && P2.act(), big2 = live && P2.spec();
+      if (!dunkStep(p2, dt)) mv(p2, d2, d2.len ? sp2 : 0, dt);
+      else mv(p2, { x: 0, z: 0, len: 0 }, 0, dt);
+      if (S.owner === p2 && !p2.dunkT) {
+        if (shoot2) doShot(p2, false);
+        else if (big2) doShot(p2, true);
+      }
+    }
+
+    if (live) bots.forEach(function (b) { botStep(b, dt); });
+    else bots.forEach(function (b) { mv(b, { x: 0, z: 0, len: 0 }, 0, dt); });
+    spread(dt);
+
+    if (live) possession(dt);
+    ballStep(dt);
+
+    if (S.owner) {
+      ownRing.visible = true;
+      ownRing.position.set(S.owner.p.x, 0.07, S.owner.p.z);
+      ownRing.material.color.setHex(S.owner.team === 1 ? 0xffe14d : 0xff5a5a);
+    } else ownRing.visible = false;
+    var pulse = 0.62 + 0.28 * Math.sin(S.t * 3.4);
+    dunkRings[0].material.opacity = pulse;
+    dunkRings[2].material.opacity = pulse;
+    confetti.update(dt);
+
+    var want = new THREE.Vector3(bp.x * 0.5, 12.5, bp.z + 19);
+    if (S.phase === 'score') want.set(bp.x * 0.4, 7.5, bp.z + 12);
+    camera.position.lerp(want, 1 - Math.pow(0.004, dt));
+    if (S.shake > 0) {
+      S.shake -= dt;
+      camera.position.x += rand(-1, 1) * S.shake * 0.8;
+      camera.position.y += rand(-1, 1) * S.shake * 0.5;
+    }
+    camera.lookAt(bp.x * 0.45, 2.0, bp.z - 5);
+    sun.target.position.set(bp.x, 0, bp.z);
+    sun.position.set(bp.x + 26, 50, bp.z + 30);
+    hud();
+  }
+
+  function over() {
+    S.phase = 'over';
+    SFX.whistle();
+    var title, body;
+    if (np === 2) {
+      title = S.s1 === S.s2 ? 'A DRAW!' : (S.s1 > S.s2 ? 'BLUE WINS!' : 'RED WINS!');
+      body = 'Blue <b>' + S.s1 + '</b> - <b>' + S.s2 + '</b> Red';
+    } else {
+      title = S.s1 > 0 ? 'GREAT GAME!' : 'TIME UP!';
+      body = 'You scored <b>' + S.s1 + '</b> point' + (S.s1 === 1 ? '' : 's') +
+        '.<br><br>Best ever: <b>' + S.best + '</b>';
+    }
+    gameTimer(function () { finish(title, body); }, 900);
+  }
+
+  return {
+    scene: scene, camera: camera, update: update,
+    dbg: function () {
+      var rz = rimZ(p1.attack);
+      return {
+        phase: S.phase, s1: S.s1, s2: S.s2, best: S.best, score1: S.s1,
+        clock: Math.round(S.clock * 10) / 10,
+        p1: { x: r2(p1.p.x), y: r2(p1.air), z: r2(p1.p.z) },
+        ball: { x: r2(bp.x), y: r2(bp.y), z: r2(bp.z) },
+        hoop: { x: 0, z: r2(rz) },
+        distHoop: r2(Math.hypot(p1.p.x, p1.p.z - rz)),
+        own: S.owner ? (S.owner === p1 ? 'p1' : (S.owner === p2 ? 'p2' : 'bot')) : null,
+        owned: S.owner ? (S.owner.human ? 'human' : 'bot') : null,
+        dunkT: r2(p1.dunkT), cam: [r2(camera.position.x), r2(camera.position.y), r2(camera.position.z)]
+      };
+    },
+    dispose: function () { setTip(''); disposeScene(scene); }
+  };
+}
+function r2(n) { return Math.round(n * 100) / 100; }
+
 // ---------------------------------------------------------------- dispose
-function disposeScene(s) {
-  s.traverse(function (o) {
+function disposeScene(s) {  s.traverse(function (o) {
     if (o.geometry) o.geometry.dispose();
     if (o.material) {
       var ms = Array.isArray(o.material) ? o.material : [o.material];
@@ -2512,6 +3169,7 @@ function wire() {
   $('b-football').onclick = function () { mode = 'football'; $('p2note').textContent = '2 players: Player 1 runs with the ball. Player 2 is the tackler with the red arrow.'; show('s-players'); };
   $('b-wrestle').onclick = function () { mode = 'wrestle'; $('p2note').textContent = '2 players: fight each other in the ring!'; show('s-players'); };
   $('b-soccer').onclick = function () { mode = 'soccer'; $('p2note').textContent = '2 players: Blue shoots one way, Red shoots the other way. Most goals wins!'; show('s-players'); };
+  $('b-basket').onclick = function () { mode = 'basket'; $('p2note').textContent = '2 players: Blue shoots at one hoop, Red at the other. Most points wins!'; show('s-players'); };
   $('b-1p').onclick = function () {
     nPlayers = 1; pickingFor = 1;
     $('chartitle').textContent = 'PICK YOUR GUY';

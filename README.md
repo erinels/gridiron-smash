@@ -4,13 +4,14 @@ A 3D sports game for the browser. Made by a 5 year old and his dad.
 
 Play it here: **https://erinels.github.io/gridiron-smash/**
 
-## Three games in one
+## Four games in one
 
 | Game | What you do |
 | --- | --- |
 | **Football** | Run to the end zone. Score touchdowns. Kick the extra point. |
 | **Wrestling** | WWE style. Punch, slam, and knock the other wrestler down. |
 | **Soccer** | Dribble the ball and shoot past the goalkeeper. |
+| **Basketball** | Run in and slam dunk it, or shoot from far back for 3 points. |
 
 Pick your character before every match. Play alone or with a friend on the same
 keyboard, or on the same phone or tablet.
@@ -34,6 +35,24 @@ shows who you have already beaten.
 | **THE VIPER** | Sneaky. Hits very fast. |
 | **KING SMASH** | THE BOSS. Gold mask. Massive. Gets up fast, and gets angry when he is hurt. |
 
+## Basketball: dunk it or shoot it
+
+There are two ways to score, and both are easy.
+
+**DUNK.** Run into the gold ring on the floor under the hoop and press SHOOT.
+Your player jumps up and slams the ball through. That is 2 points, every time.
+
+**BIG SHOT.** Stand back behind the white arc and press E. The ball floats up in
+a high arc and drops in. Outside the arc is 3 points.
+
+Press SHOOT anywhere else for a normal shot. The further out you are, the more
+it can wobble, so the BIG SHOT is the one to use from far back.
+
+You get 90 seconds. The game remembers your best score.
+
+There is a new player for this one: **HOOPER**. He is very tall and he jumps the
+highest. You can pick him in any game.
+
 ## Controls
 
 ### Keyboard
@@ -41,8 +60,8 @@ shows who you have already beaten.
 | Key | What it does |
 | --- | --- |
 | Arrow keys or W A S D | Move. Press two at once to run diagonally. |
-| SPACE | Spin (football), punch (wrestling), shoot (soccer) |
-| E | Throw (football), big slam (wrestling), big kick (soccer) |
+| SPACE | Spin (football), punch (wrestling), shoot (soccer and basketball) |
+| E | Throw (football), big slam (wrestling), big kick (soccer), big shot (basketball) |
 | SHIFT | Run fast |
 
 Player 2 uses I J K L to move, G to hit, and H for the special move.
@@ -56,7 +75,7 @@ the phone sideways first.
 | --- | --- |
 | Left side of the screen | Hold and drag to steer. It works in every direction, so diagonals are easy. |
 | Big green button | The main move. It is labelled for the game you picked: SPIN, PUNCH, or SHOOT. |
-| Blue button | The special move: THROW, SLAM, or BIG KICK. |
+| Blue button | The special move: THROW, SLAM, BIG KICK, or BIG SHOT. |
 | Grey RUN button | Tap once to run fast. Tap again to stop. |
 
 Two players can share one tablet. Each player gets a thumbstick in their own

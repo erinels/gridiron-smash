@@ -61,6 +61,8 @@
   .btn.red:active { box-shadow: 0 2px 0 #8b2114; }
   .btn.grey { background: linear-gradient(180deg, #d3dbe4, #8e9aa8); box-shadow: 0 7px 0 #545e69, 0 12px 22px rgba(0,0,0,0.45); color: #1b2027; }
   .btn.grey:active { box-shadow: 0 2px 0 #545e69; }
+  .btn.orange { background: linear-gradient(180deg, #ffbe6a, #ec7d18); box-shadow: 0 7px 0 #8f4a05, 0 12px 22px rgba(0,0,0,0.45); color: #3d1e02; }
+  .btn.orange:active { box-shadow: 0 2px 0 #8f4a05; }
   .btn.small { padding: 12px 20px; font-size: clamp(13px, 2vw, 18px); border-radius: 12px; }
 
   .card {
@@ -85,6 +87,13 @@
   }
   .card.boss { border-color: #ffd34d; box-shadow: 0 10px 26px rgba(255,196,46,0.4); }
   .card.boss .name { color: #ffd34d; }
+
+  /* character cards: four in a row */
+  #charrow { gap: 14px; }
+  #charrow .card { width: 178px; }
+  #charrow .card canvas { height: 178px; }
+  #charrow .card .name { font-size: 17px; min-height: 48px; }
+  #charrow .card .desc { font-size: 12px; min-height: 42px; }
 
   /* rival cards: five in a row, so a bit smaller */
   #rivalrow { gap: 12px; }
@@ -243,6 +252,10 @@
     .card .name { font-size: 15px; min-height: 38px; padding: 7px 4px 3px; }
     .card .desc { font-size: 11px; min-height: 34px; padding: 0 6px 8px; }
     .card .tick { width: 24px; height: 24px; font-size: 14px; line-height: 24px; }
+    #charrow .card { width: 132px; }
+    #charrow .card canvas { height: 130px; }
+    #charrow .card .name { font-size: 13px; min-height: 32px; padding: 6px 3px 3px; }
+    #charrow .card .desc { display: none; }
     #rivalrow .card { width: 114px; }
     #rivalrow .card canvas { height: 112px; }
     #rivalrow .card .name { font-size: 12px; min-height: 30px; padding: 6px 3px 4px; }
@@ -257,6 +270,10 @@
     .card canvas { height: 118px; }
     .card .name { font-size: 13px; min-height: 28px; padding: 5px 3px 2px; }
     .card .desc { font-size: 10px; min-height: 26px; padding: 0 5px 6px; line-height: 1.25; }
+    #charrow { gap: 8px; }
+    #charrow .card { width: 108px; border-width: 3px; }
+    #charrow .card canvas { height: 106px; }
+    #charrow .card .name { font-size: 11px; min-height: 26px; padding: 4px 2px 2px; }
     #rivalrow { gap: 7px; }
     #rivalrow .card { width: 96px; border-width: 3px; }
     #rivalrow .card canvas { height: 92px; }
@@ -311,7 +328,7 @@
 <!-- ============ TITLE ============ -->
 <div class="screen" id="s-title">
   <h1>GRIDIRON<br>SMASH</h1>
-  <p class="sub">Football. Wrestling. Soccer. Three games in one.</p>
+  <p class="sub">Football. Wrestling. Soccer. Basketball. Four games in one.</p>
   <div class="row">
     <button class="btn" id="b-play">PLAY</button>
     <button class="btn blue" id="b-how">HOW TO PLAY</button>
@@ -323,11 +340,12 @@
   <h2>HOW TO PLAY</h2>
   <p class="sub">
     <b>MOVE:</b> Arrow keys or W A S D. Press two at once to run diagonally.<br><br>
-    <b>SPACE:</b> Spin away from tacklers (football), PUNCH (wrestling), SHOOT (soccer)<br><br>
-    <b>E:</b> Throw the ball (football), BIG SLAM (wrestling), BIG KICK (soccer)<br><br>
+    <b>SPACE:</b> Spin away from tacklers (football), PUNCH (wrestling), SHOOT (soccer and basketball)<br><br>
+    <b>E:</b> Throw the ball (football), BIG SLAM (wrestling), BIG KICK (soccer), BIG SHOT (basketball)<br><br>
     <b>SHIFT:</b> Run super fast<br><br>
     <b>ON A PHONE:</b> Hold the left side to steer. Big buttons on the right do the moves. Tap RUN to go fast.<br><br>
     In soccer, run at the ball and it sticks to your feet. A yellow ring shows you have it.<br><br>
+    In basketball, run into the <b>gold ring</b> under the hoop and press SHOOT to <b>DUNK</b> it. Shoot from far back for <b>3 points</b>.<br><br>
     In wrestling you can do a <b>BELT RUN</b>: beat 5 wrestlers, one after the other. The last one is the BOSS. Or pick just one rival to fight.<br><br>
     Player 2 uses <b>I J K L</b> to move, <b>G</b> to hit, <b>H</b> for special.
   </p>
@@ -341,6 +359,7 @@
     <button class="btn" id="b-football">FOOTBALL</button>
     <button class="btn red" id="b-wrestle">WRESTLING</button>
     <button class="btn blue" id="b-soccer">SOCCER</button>
+    <button class="btn orange" id="b-basket">BASKETBALL</button>
   </div>
   <button class="btn grey small" id="b-mode-back">BACK</button>
 </div>
